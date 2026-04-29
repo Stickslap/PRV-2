@@ -27,8 +27,12 @@ export function AdminLogin() {
       const response = await axios.post("/api/admin/staff-login", { username, password });
       
       if (response.data.success) {
-        // 2. Establish a real Firebase session for database access
-        await signInAnonymouslyWithFirebase();
+        // 2. Try to establish a Firebase session (optional — fails gracefully if Firebase Anonymous Auth is not enabled)
+        try {
+          await signInAnonymouslyWithFirebase();
+        } catch (firebaseErr) {
+          console.warn("Firebase anonymous auth unavailable — using localStorage session only.", firebaseErr);
+        }
         
         localStorage.setItem("staff_authenticated", "true");
         localStorage.setItem("staff_session_time", Date.now().toString());
@@ -48,15 +52,22 @@ export function AdminLogin() {
       const user = await signInWithGoogle();
       
       if (user && user.email && (ADMIN_EMAILS.includes(user.email) || user.email.toLowerCase().includes("arlington.a.teheran"))) {
+        localStorage.setItem("staff_authenticated", "true");
+        localStorage.setItem("staff_session_time", Date.now().toString());
         toast.success("Identity Verified");
         navigate("/admin");
       } else {
         await logout();
         toast.error("Unauthorized: Credentials rejected by security protocol.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Authentication handshake failed.");
+      const msg = err?.code === 'auth/operation-not-allowed'
+        ? "Google sign-in is not enabled in Firebase. Enable it in your Firebase console."
+        : err?.code === 'auth/popup-closed-by-user'
+        ? "Sign-in popup was closed."
+        : "Authentication handshake failed.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
