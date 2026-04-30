@@ -485,6 +485,7 @@ export function Checkout() {
                     Card Details <span className="text-red-500">*</span>
                   </p>
                   {import.meta.env.VITE_SQUARE_APPLICATION_ID ? (
+                    <div id="sq-form-scope">
                     <PaymentForm
                       applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
                       locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
@@ -513,6 +514,7 @@ export function Checkout() {
                         {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
                       </CreditCard>
                     </PaymentForm>
+                    </div>
                   ) : (
                     <div className="p-5 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-xs font-bold space-y-2">
                       <p>⚠️ Square credentials not configured.</p>

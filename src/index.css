@@ -47,4 +47,13 @@
   animation: spin-slow 12s linear infinite;
 }
 
+/* Remove Square's injected blue background on the button container wrapper.
+   Scoped to our wrapper so nothing else is affected. */
+#sq-form-scope > div > div:last-child,
+#sq-form-scope > div > div > div:last-child {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
 
