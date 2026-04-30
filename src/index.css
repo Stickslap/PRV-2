@@ -47,22 +47,4 @@
   animation: spin-slow 12s linear infinite;
 }
 
-/* ── Strip Square Web Payments SDK injected blue container ── */
-[class*="sq-"],
-[id*="sq-"],
-[data-testid*="sq-"] {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-/* Target the card component wrapper div Square injects around the button */
-.sq-card-wrapper,
-.sq-card-component,
-.sq-payment-form {
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-}
 

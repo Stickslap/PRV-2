@@ -118,33 +118,18 @@ export function Checkout() {
     initBC();
   }, [cart]);
 
-  // Initialize Square Web Payments SDK directly (bypasses react-square-web-payments-sdk iframes)
+  // Initialize Square Web Payments SDK (square.js loaded via index.html)
   useEffect(() => {
     const appId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
     const locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
-    if (!appId || !locationId) return;
+    if (!appId || !locationId || !window.Square) return;
 
     const initSquare = async () => {
       try {
-        // Load square.js if not already present
-        if (!window.Square) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://web.squarecdn.com/v1/square.js';
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load Square.js'));
-            document.head.appendChild(script);
-          });
-        }
-
         const payments = window.Square.payments(appId, locationId);
         const card = await payments.card({
           style: {
-            input: {
-              fontSize: '14px',
-              fontFamily: 'Inter, sans-serif',
-              color: '#111827',
-            },
+            input: { fontSize: '14px', fontFamily: 'Inter, sans-serif', color: '#111827' },
             'input::placeholder': { color: '#9ca3af' },
           },
         });
