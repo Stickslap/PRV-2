@@ -143,10 +143,142 @@ app.post("/api/checkout/create-payment", async (req, res) => {
   }
 });
 
-// ---- Proxy all other /api routes to the full server (best-effort) ----
-app.all("/api/*", async (req, res) => {
-  // For routes not explicitly handled above, return a useful error
+// ---- Customer Login ----
+app.post("/api/customer/login", async (req, res) => {
+  const { email, password } = req.body;
+  const bc = getBCClient();
+  if (!bc) return res.status(500).json({ error: "BigCommerce is not configured." });
+
+  try {
+    let storeHash = process.env.BIGCOMMERCE_STORE_HASH || "";
+    const accessToken = process.env.BIGCOMMERCE_ACCESS_TOKEN;
+    if (!accessToken || !storeHash || !email) return res.status(500).json({ error: "Missing config or email" });
+
+    let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
+    if (storeHash.startsWith("http")) baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
+
+    const custRes = await axios.get(`${baseUrl}/v3/customers?email:in=${encodeURIComponent(String(email))}`, {
+      headers: { "X-Auth-Token": accessToken, Accept: "application/json" },
+    });
+    const customers = custRes.data.data;
+    if (!customers || customers.length === 0) return res.status(401).json({ error: "Invalid credentials" });
+    const c = customers[0];
+
+    try {
+      let vRes;
+      try {
+        vRes = await axios.post(`${baseUrl}/v3/customers/validate-credentials`, { email, password }, {
+          headers: { "X-Auth-Token": accessToken, Accept: "application/json", "Content-Type": "application/json" },
+        });
+      } catch {
+        vRes = await axios.post(`${baseUrl}/v3/customers/validate-credentials`, { email, channel_id: 1, password }, {
+          headers: { "X-Auth-Token": accessToken, Accept: "application/json", "Content-Type": "application/json" },
+        });
+      }
+      if (!vRes.data?.is_valid) return res.status(401).json({ error: "Invalid password." });
+    } catch (e: any) {
+      return res.status(401).json({ error: "Verification failed.", detail: e?.response?.data || e?.message });
+    }
+
+    res.json({ id: String(c.id), email: c.email, firstName: c.first_name, lastName: c.last_name });
+  } catch (e: any) {
+    console.error("BC Login error", e.message);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// ---- Customer Signup ----
+app.post("/api/customer/signup", async (req, res) => {
+  const { firstName, lastName, email, password } = req.body;
+  const bc = getBCClient();
+  if (!bc) return res.status(500).json({ error: "BigCommerce is not configured." });
+
+  try {
+    const storeHash = process.env.BIGCOMMERCE_STORE_HASH;
+    const accessToken = process.env.BIGCOMMERCE_ACCESS_TOKEN;
+    if (!password) return res.status(400).json({ error: "Password is required" });
+
+    const response = await bc.post("/customers", [{
+      email,
+      first_name: firstName || "Unknown",
+      last_name: lastName || "Unknown",
+      authentication: { force_password_reset: false, new_password: password },
+    }]);
+
+    const newCustomer = response.data.data[0];
+
+    // Retrospective guest order sync
+    try {
+      let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
+      if (storeHash?.startsWith("http")) baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
+      const gRes = await axios.get(`${baseUrl}/v2/orders.json?email=${encodeURIComponent(email)}&customer_id=0`, {
+        headers: { "X-Auth-Token": accessToken, Accept: "application/json" },
+      });
+      const orders = Array.isArray(gRes.data) ? gRes.data : [];
+      for (const o of orders) {
+        await axios.put(`${baseUrl}/v2/orders/${o.id}.json`, { customer_id: newCustomer.id }, {
+          headers: { "X-Auth-Token": accessToken, Accept: "application/json" },
+        });
+      }
+    } catch (syncErr) { console.error("Order sync failed:", syncErr); }
+
+    res.json({ id: newCustomer.id, email: newCustomer.email, firstName: newCustomer.first_name, lastName: newCustomer.last_name });
+  } catch (e: any) {
+    res.status(e.response?.status || 500).json({ error: e.response?.data?.title || e.message || "Signup failed" });
+  }
+});
+
+// ---- Customer Profile ----
+app.get("/api/customer/profile", async (req, res) => {
+  const { email } = req.query;
+  const bc = getBCClient();
+  if (!bc) return res.status(500).json({ error: "Not configured" });
+  try {
+    const r = await bc.get(`/customers?email:in=${encodeURIComponent(String(email))}`);
+    const c = r.data.data?.[0];
+    if (!c) return res.status(404).json({ error: "Customer not found" });
+    res.json({ id: c.id, email: c.email, firstName: c.first_name, lastName: c.last_name });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Customer Orders ----
+app.get("/api/customer/orders", async (req, res) => {
+  const { email } = req.query;
+  const accessToken = process.env.BIGCOMMERCE_ACCESS_TOKEN;
+  let storeHash = process.env.BIGCOMMERCE_STORE_HASH || "";
+  if (!accessToken || !storeHash) return res.status(500).json({ error: "Not configured" });
+  let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
+  if (storeHash.startsWith("http")) baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
+  try {
+    const r = await axios.get(`${baseUrl}/v2/orders.json?email=${encodeURIComponent(String(email))}`, {
+      headers: { "X-Auth-Token": accessToken, Accept: "application/json" },
+    });
+    res.json(Array.isArray(r.data) ? r.data : []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Forgot Password ----
+app.post("/api/customer/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  const bc = getBCClient();
+  if (!bc) return res.status(500).json({ error: "Not configured" });
+  try {
+    const r = await bc.get(`/customers?email:in=${encodeURIComponent(email)}`);
+    if (!r.data.data?.length) return res.status(404).json({ error: "Email not found" });
+    res.json({ success: true, message: "If this email exists, a reset link has been sent." });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Fallback ----
+app.all("/api/*", (req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} is not available in production.` });
 });
+
 
 export default app;
