@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import axios from "axios";
 import cors from "cors";
 
@@ -523,11 +523,41 @@ app.post("/api/checkout/process", async (req, res) => {
   const { storeHash, accessToken } = c;
   const v2 = `https://api.bigcommerce.com/stores/${storeHash}/v2`;
   const h = { "X-Auth-Token": accessToken, Accept: "application/json", "Content-Type": "application/json" };
+
+  const buildAddress = (a: any) => ({
+    first_name: a.first_name||"Guest", last_name: a.last_name||"Customer",
+    street_1: a.street_1||"N/A", city: a.city||"N/A", state: a.state||"N/A",
+    zip: a.zip||"00000", country: "United States", country_iso2: "US",
+    email, phone: a.phone||"0000000000"
+  });
+
+  const createOrder = async (useProductIds: boolean) => {
+    const products = cart.map((i: any) => useProductIds
+      ? { product_id: Number(i.id), quantity: Number(i.quantity), name: i.name||"Item", price_inc_tax: Number(i.price)||0, price_ex_tax: Number(i.price)||0, ...(i.variant_id ? { variant_id: Number(i.variant_id) } : {}) }
+      : { name: i.name||"Custom Item", quantity: Number(i.quantity), price_inc_tax: Number(i.price)||0, price_ex_tax: Number(i.price)||0 }
+    );
+    return axios.post(`${v2}/orders`, {
+      customer_id: 0,
+      billing_address: buildAddress(shipping_address),
+      shipping_addresses: [{ ...buildAddress(shipping_address), shipping_method: "Standard Shipping" }],
+      products, status_id: 0
+    }, { headers: h });
+  };
+
   try {
-    // Create order
-    const orderRes = await axios.post(`${v2}/orders`,{customer_id:0,billing_address:{first_name:shipping_address.first_name||"Guest",last_name:shipping_address.last_name||"Customer",street_1:shipping_address.street_1,city:shipping_address.city,state:shipping_address.state,zip:shipping_address.zip,country:"United States",country_iso2:"US",email},shipping_addresses:[{first_name:shipping_address.first_name||"Guest",last_name:shipping_address.last_name||"Customer",street_1:shipping_address.street_1,city:shipping_address.city,state:shipping_address.state,zip:shipping_address.zip,country:"United States",country_iso2:"US",phone:shipping_address.phone||"0000000000",shipping_method:"Standard Shipping"}],products:cart.map((i:any)=>({product_id:Number(i.id),quantity:Number(i.quantity),name:i.name||"Item",price_inc_tax:Number(i.price)||0,price_ex_tax:Number(i.price)||0})),status_id:0},{headers:h});
+    let orderRes: any;
+    try {
+      orderRes = await createOrder(true);
+    } catch (bcErr: any) {
+      // BC 400 = mandatory options missing — retry as custom items (no product_id)
+      if (bcErr.response?.status === 400) {
+        console.log("[checkout/process] BC rejected product IDs (options), retrying as custom items");
+        orderRes = await createOrder(false);
+      } else throw bcErr;
+    }
+
     const orderId = orderRes.data.id;
-    const total = parseFloat(orderRes.data.total_inc_tax||0);
+    const total = parseFloat(orderRes.data.total_inc_tax || 0);
 
     // Process Square payment if nonce provided
     if (nonce && payment_method !== 'link') {
@@ -535,15 +565,31 @@ app.post("/api/checkout/process", async (req, res) => {
         const { SquareClient, SquareEnvironment } = await import("square");
         const token = process.env.SQUARE_ACCESS_TOKEN;
         if (token) {
-          const sq = new SquareClient({ environment: token.startsWith("EAAA") ? SquareEnvironment.Production : SquareEnvironment.Sandbox, token });
-          await sq.payments.create({ sourceId: nonce, idempotencyKey: `sq-${orderId}-${Date.now()}`, amountMoney: { amount: BigInt(Math.round(total*100)), currency: "USD" }, referenceId: orderId.toString() });
-          await axios.put(`${v2}/orders/${orderId}`,{status_id:11,payment_method:"Square"},{headers:h});
+          const sq = new SquareClient({
+            environment: token.startsWith("EAAA") ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+            token
+          });
+          await sq.payments.create({
+            sourceId: nonce,
+            idempotencyKey: `sq-${orderId}-${Date.now()}`,
+            amountMoney: { amount: BigInt(Math.round(total * 100)), currency: "USD" },
+            referenceId: orderId.toString()
+          });
+          await axios.put(`${v2}/orders/${orderId}`, { status_id: 11, payment_method: "Square" }, { headers: h });
+          console.log(`[checkout/process] Square payment captured for order #${orderId}`);
         }
-      } catch (sqErr: any) { console.error("Square error:", sqErr.message); }
+      } catch (sqErr: any) {
+        console.error("[checkout/process] Square error:", sqErr.message);
+        // Order exists in BC — return success even if Square had an issue
+        return res.json({ success: true, orderId, total, warning: "Payment processing issue — contact support." });
+      }
     }
 
     res.json({ success: true, orderId, total });
-  } catch (e: any) { console.error("Checkout process error:", e.response?.data||e.message); res.status(500).json({ error: e.message, details: e.response?.data }); }
+  } catch (e: any) {
+    console.error("[checkout/process] Error:", e.response?.data || e.message);
+    res.status(500).json({ error: e.message, details: e.response?.data });
+  }
 });
 
 app.post("/api/orders/create", async (req, res) => {
