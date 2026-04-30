@@ -7,19 +7,22 @@ import { SquareClient, SquareEnvironment } from "square";
 
 dotenv.config();
 
-// Initialize Square Client
-let squareClient: typeof SquareClient.prototype | null = null;
-if (process.env.SQUARE_ACCESS_TOKEN) {
-  // Check if token and application ID point to production
-  const isProduction = 
-    process.env.VITE_SQUARE_APPLICATION_ID?.startsWith('sq0idp-') || 
-    process.env.SQUARE_ACCESS_TOKEN.startsWith('EAAA') || 
-    process.env.NODE_ENV === "production";
+// Initialize Square Client (wrapped in try-catch to prevent crashing all routes)
+let squareClient: any = null;
+try {
+  if (process.env.SQUARE_ACCESS_TOKEN) {
+    const isProduction =
+      process.env.VITE_SQUARE_APPLICATION_ID?.startsWith('sq0idp-') ||
+      process.env.SQUARE_ACCESS_TOKEN.startsWith('EAAA') ||
+      process.env.NODE_ENV === "production";
 
-  squareClient = new SquareClient({
-    environment: isProduction ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
-    token: process.env.SQUARE_ACCESS_TOKEN,
-  });
+    squareClient = new SquareClient({
+      environment: isProduction ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+      token: process.env.SQUARE_ACCESS_TOKEN,
+    });
+  }
+} catch (squareInitErr: any) {
+  console.error("[server] Square SDK init failed:", squareInitErr?.message);
 }
 
 const app = express();
