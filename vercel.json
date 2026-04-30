@@ -4,17 +4,6 @@
     "api/index.ts": { "maxDuration": 30 },
     "api/ping.ts": { "maxDuration": 10 }
   },
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.squarecdn.com https://*.square.com https://*.squareup.com https://js.squareup.com https://web.squarecdn.com https://www.googletagmanager.com https://www.youtube.com https://s.ytimg.com; frame-src 'self' https://*.squarecdn.com https://*.square.com https://*.squareup.com https://js.squareup.com https://pci-connect.squareup.com https://www.youtube.com; font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com https://*.squarecdn.com https://*.square.com https://*.squareup.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.squarecdn.com https://*.squareup.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.squarecdn.com https://*.square.com https://*.squareup.com https://pci-connect.squareup.com https://api.bigcommerce.com https://api.resend.com https://www.youtube.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; media-src 'self' blob: https:; worker-src 'self' blob:;"
-        }
-      ]
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/ping",
@@ -30,3 +19,4 @@
     }
   ]
 }
+
