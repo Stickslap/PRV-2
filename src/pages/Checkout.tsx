@@ -149,6 +149,8 @@ export function Checkout() {
     formData.zip.length >= 5;
 
   const handleSquareTokenization = async (token: any) => {
+    console.log('[Checkout] Square tokenization response:', JSON.stringify(token));
+    
     if (formData.state === 'State') {
       toast.error('Please select a state before completing your order.');
       return;
@@ -157,8 +159,18 @@ export function Checkout() {
       toast.error('Please fill in all required fields.');
       return;
     }
+    
+    // Handle tokenization errors with detail
+    if (token?.status === 'ERROR' || token?.errors?.length > 0) {
+      const errMsgs = token.errors?.map((e: any) => e.message).join(', ') || 'Unknown tokenization error';
+      console.error('[Checkout] Square tokenization errors:', token.errors);
+      toast.error(`Card error: ${errMsgs}`);
+      return;
+    }
+    
     if (!token?.token) {
-      toast.error('Card tokenisation failed. Please try again.');
+      console.error('[Checkout] No token received from Square:', token);
+      toast.error('Card tokenisation failed — no token received. Please re-enter card details.');
       return;
     }
 
@@ -203,12 +215,14 @@ export function Checkout() {
         
         navigate(`/order-success?id=${response.data.orderId}`);
       } else {
-        toast.error(response.data?.error || 'Payment failed. Please try again.');
+        toast.error(response.data?.error || response.data?.squareError || 'Payment failed. Please try again.');
         setIsProcessing(false);
       }
     } catch (error: any) {
       console.error('Checkout Error:', error);
-      toast.error(error.response?.data?.error || error.response?.data?.details || 'Failed to process payment.');
+      const errData = error.response?.data;
+      const msg = errData?.squareError || errData?.error || errData?.details || 'Failed to process payment.';
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
       setIsProcessing(false);
     }
   };
