@@ -64,6 +64,7 @@ export interface Product {
   modifiers?: Modifier[];
   custom_fields?: CustomField[];
   categories?: number[];
+  search_keywords?: string;
 }
 
 export interface Category {

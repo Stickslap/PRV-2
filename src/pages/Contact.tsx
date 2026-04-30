@@ -43,8 +43,27 @@ export function Contact() {
     const email = fd.get("email") as string;
     const subject = fd.get("subject") as string;
     const message = fd.get("message") as string;
+    const orderId = fd.get("orderId") as string;
 
     try {
+      // Notify Admin and potentially attach to BigCommerce Orders Messages
+      try {
+        await fetch(`/api/contact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name,
+            email, 
+            subject,
+            message,
+            orderId,
+            notificationEmail: settings?.notificationEmail || settings?.contactEmail || "alerts@printsocietyco.com"
+          })
+        });
+      } catch (bcErr) {
+        console.error("Failed to sync contact form to API", bcErr);
+      }
+
       // Create a thread for this inquiry
       const threadRef = await addDoc(collection(db, "threads"), {
         userEmail: email,
@@ -205,14 +224,25 @@ export function Contact() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Reason For Contact</label>
-                  <select name="subject" required className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-black focus:border-black outline-none transition-colors cursor-pointer">
-                    <option value="General Inquiry">General Inquiry</option>
-                    <option value="Order Status">Order Status</option>
-                    <option value="Custom Quote">Custom Quote</option>
-                    <option value="Artwork Support">Artwork Support</option>
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Reason For Contact</label>
+                    <select name="subject" required className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-black focus:border-black outline-none transition-colors cursor-pointer">
+                      <option value="General Inquiry">General Inquiry</option>
+                      <option value="Order Status">Order Status</option>
+                      <option value="Custom Quote">Custom Quote</option>
+                      <option value="Artwork Support">Artwork Support</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Order Number (Optional)</label>
+                    <input 
+                      name="orderId"
+                      type="text" 
+                      placeholder="e.g. 104"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-black focus:border-black outline-none transition-colors placeholder:text-gray-400"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

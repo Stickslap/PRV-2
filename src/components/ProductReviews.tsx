@@ -203,7 +203,7 @@ export const ProductReviews = ({ productId }: ProductReviewsProps) => {
                     <div>
                       <p className="text-sm font-black italic">{review.userName}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {review.createdAt?.toDate().toLocaleDateString()}
+                        {review.createdAt ? (typeof review.createdAt === 'string' ? new Date(review.createdAt).toLocaleDateString() : (review.createdAt as any).toDate?.()?.toLocaleDateString() || new Date((review.createdAt as any).seconds * 1000).toLocaleDateString()) : ''}
                       </p>
                     </div>
                   </div>

@@ -6,11 +6,13 @@ interface CartItem extends Product {
   quantity: number;
   variant_id?: number | null;
   selectedOptions?: Record<number, number>;
+  artworkDataUrl?: string;
+  artworkNotes?: string;
 }
 
 interface AppState {
   cart: CartItem[];
-  addItem: (product: Product, variant_id?: number, selectedOptions?: Record<number, number>, price?: number) => void;
+  addItem: (product: Product, variant_id?: number, selectedOptions?: Record<number, number>, price?: number, artworkDataUrl?: string, artworkNotes?: string) => void;
   removeItem: (index: number) => void;
   updateQuantity: (index: number, quantity: number) => void;
   clearCart: () => void;
@@ -28,7 +30,7 @@ export const useStore = create<AppState>()(
   persist(
     (set) => ({
       cart: [],
-      addItem: (product, variant_id, selectedOptions, price) => 
+      addItem: (product, variant_id, selectedOptions, price, artworkDataUrl, artworkNotes) => 
         set((state) => {
           let vid = variant_id ?? product.base_variant_id ?? null;
           if (!vid && product.variants && product.variants.length > 0) {
@@ -41,17 +43,19 @@ export const useStore = create<AppState>()(
             item.id === product.id && 
             item.variant_id === vid && 
             JSON.stringify(item.selectedOptions || {}) === JSON.stringify(selectedOptions || {}) &&
-            item.price === finalPrice
+            item.price === finalPrice &&
+            item.artworkDataUrl === artworkDataUrl &&
+            item.artworkNotes === artworkNotes
           );
           if (existingItem) {
             return {
               cart: state.cart.map((item) =>
-                (item.id === product.id && item.variant_id === vid && JSON.stringify(item.selectedOptions || {}) === JSON.stringify(selectedOptions || {}) && item.price === finalPrice) 
+                (item.id === product.id && item.variant_id === vid && JSON.stringify(item.selectedOptions || {}) === JSON.stringify(selectedOptions || {}) && item.price === finalPrice && item.artworkDataUrl === artworkDataUrl && item.artworkNotes === artworkNotes) 
                   ? { ...item, quantity: item.quantity + 1 } : item
               ),
             };
           }
-          return { cart: [...state.cart, { ...product, price: finalPrice, quantity: 1, variant_id: vid, selectedOptions }] };
+          return { cart: [...state.cart, { ...product, price: finalPrice, quantity: 1, variant_id: vid, selectedOptions, artworkDataUrl, artworkNotes }] };
         }),
       removeItem: (index) =>
         set((state) => ({

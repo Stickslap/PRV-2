@@ -156,7 +156,7 @@ app.get("/api/products", async (req, res) => {
     
     while (hasMore && page <= 10) { 
       console.log(`Fetching page ${page}...`);
-      const response = await bc.get(`/catalog/products?include=images,variants,primary_image,options,modifiers&limit=250&page=${page}&sort=id&direction=desc`);
+      const response = await bc.get(`/catalog/products?include=images,variants,primary_image,options,modifiers,custom_fields&limit=250&page=${page}&sort=id&direction=desc`);
       const data = response.data.data || [];
       allProducts = [...allProducts, ...data];
       
@@ -800,11 +800,16 @@ app.get("/api/customer/profile", async (req, res) => {
     let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
     if (storeHash.startsWith("http")) baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
 
-    const custRes = await axios.get(`${baseUrl}/v3/customers?email:in=${encodeURIComponent(String(email))}`, {
-      headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
-    });
+    let customers = [];
+    try {
+      const custRes = await axios.get(`${baseUrl}/v3/customers?email:in=${encodeURIComponent(String(email))}`, {
+        headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+      });
+      customers = custRes.data.data;
+    } catch (e: any) {
+      console.error("Failed to fetch customers, possibly rate limited", e.response?.status);
+    }
     
-    const customers = custRes.data.data;
     if (!customers || customers.length === 0) {
       const defaultProfile = {
         firstName: "Guest",
@@ -841,6 +846,18 @@ app.get("/api/customer/profile", async (req, res) => {
       console.error("Failed to fetch address", e);
     }
 
+    let storeCredit = 0.00;
+    try {
+      const v2Res = await axios.get(`${baseUrl}/v2/customers.json?email=${encodeURIComponent(String(email))}`, {
+        headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+      });
+      if (v2Res.data && v2Res.data.length > 0) {
+        storeCredit = parseFloat(v2Res.data[0].store_credit || 0);
+      }
+    } catch (e) {
+      console.error("Failed to fetch store credit", e);
+    }
+
     // Handle string dates (ISO) or unix timestamps
     let memberSinceDate = new Date();
     if (c.date_created) {
@@ -866,7 +883,7 @@ app.get("/api/customer/profile", async (req, res) => {
       memberSince: memberSinceDate.toLocaleDateString(),
       lastSync: new Date().toLocaleDateString(),
       status: "Verified",
-      credit: 0.00,
+      credit: storeCredit,
       tier: c.customer_group_id ? `Group ${c.customer_group_id}` : "Standard"
     };
 
@@ -882,11 +899,57 @@ app.get("/api/customer/profile", async (req, res) => {
 });
 
 app.get("/api/customer/threads", async (req, res) => {
-  res.json([
-    { id: 'SAN', subject: 'GENERAL INQUIRY: SAN', status: 'OPEN', date: '4/23/2026', message: '"Customer Name: SAN Category: General Inquiry Source: Main Contact Page Attachment: None Hello come on"' },
-    { id: 'RUN', subject: 'GENERAL INQUIRY: RUN', status: 'OPEN', date: '4/23/2026', message: '"Customer Name: RUN Category: General Inquiry Source: Main Contact Page Attachment: None Where is my vinyl?"' },
-    { id: 'PROJ', subject: 'REGISTRY UPDATE: YOUR PROJECT', status: 'CLOSED', date: '4/22/2026', message: '"Thank you for your order"' },
-  ]);
+  const { email } = req.query;
+  const bc = getBCClient();
+  if (!bc || !email) return res.json([]);
+
+  try {
+    // Determine base URL
+    const storeHash = process.env.VITE_BIGCOMMERCE_STORE_HASH || "";
+    let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
+    if (storeHash.startsWith("http")) {
+      baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
+    }
+    const accessToken = process.env.VITE_BIGCOMMERCE_ACCESS_TOKEN || "";
+    const headers = {
+      "X-Auth-Token": accessToken,
+      "Accept": "application/json"
+    };
+
+    // First fetch customer's orders
+    const ordersRes = await axios.get(`${baseUrl}/v2/orders.json?email=${encodeURIComponent(String(email))}`, { headers });
+    const orders = ordersRes.data || [];
+
+    // Fetch messages for all orders concurrently
+    const threads: any[] = [];
+    const messagePromises = orders.map(async (order: any) => {
+      try {
+        const msgRes = await axios.get(`${baseUrl}/v2/orders/${order.id}/messages.json`, { headers });
+        const messages = msgRes.data || [];
+        messages.forEach((msg: any) => {
+          threads.push({
+            id: `msg_${msg.id}`,
+            orderId: order.id,
+            subject: `ORDER #${order.id} ${msg.subject || 'MESSAGE'}`,
+            status: msg.is_flagged ? 'ATTENTION' : (msg.is_staff_authored ? 'STAFF REPLY' : 'SENT'),
+            date: new Date(msg.date_created).toLocaleDateString(),
+            message: msg.message
+          });
+        });
+      } catch (err) {
+        console.warn(`Failed fetching messages for order ${order.id}`);
+      }
+    });
+
+    await Promise.all(messagePromises);
+
+    // Sort by most recent based on some parsing if possible, or just send back
+    res.json(threads.reverse());
+
+  } catch (error) {
+    console.error("Error fetching threads:", error);
+    res.status(500).json({ error: "Failed to fetch threads" });
+  }
 });
 
 app.post("/api/customer/forgot-password", async (req, res) => {
@@ -1043,6 +1106,30 @@ app.post("/api/customer/signup", async (req, res) => {
     });
 
     const newCustomer = response.data.data[0];
+    
+    // Guest-to-Account Conversion: Retrospective Sync
+    try {
+      let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}`;
+      if (storeHash?.startsWith("http")) baseUrl = storeHash.replace(/\/v[23]\/?$/, "");
+
+      const guestOrdersRes = await axios.get(`${baseUrl}/v2/orders.json?email=${encodeURIComponent(email)}&customer_id=0`, {
+        headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+      });
+      
+      const guestOrders = Array.isArray(guestOrdersRes.data) ? guestOrdersRes.data : [];
+      
+      for (const order of guestOrders) {
+        await axios.put(`${baseUrl}/v2/orders/${order.id}.json`, {
+          customer_id: newCustomer.id
+        }, {
+          headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+        });
+      }
+      console.log(`Retrospectively synced ${guestOrders.length} orders for ${email}`);
+    } catch (syncError) {
+      console.error("Retrospective sync failed:", syncError);
+    }
+
     res.json({
       id: newCustomer.id,
       email: newCustomer.email,
@@ -1146,6 +1233,90 @@ app.post("/api/customer/orders/:id/messages", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: "Failed to send order message" });
   }
+});
+
+app.post("/api/contact", async (req, res) => {
+  const { name, email, subject, message, orderId, notificationEmail } = req.body;
+  const bc = getBCClient();
+  let targetOrderId = orderId;
+
+  console.log(`[CONTACT FORM] Admin Notification: Sending inquiry to ${notificationEmail || 'default'} from ${email}.`);
+  console.log(`[CONTACT FORM] Subject: ${subject}`);
+  console.log(`[CONTACT FORM] Message: ${message}`);
+
+  if (bc) {
+    try {
+      const config = getBCConfig();
+      if (!config) throw new Error("Missing config");
+      const { storeHash, accessToken } = config;
+      let baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2`;
+      const headers = { "X-Auth-Token": accessToken, "Accept": "application/json", "Content-Type": "application/json" };
+      
+      // If no orderId provided, try to find their most recent order
+      if (!targetOrderId || targetOrderId.trim() === "") {
+        const guestOrdersRes = await axios.get(`${baseUrl}/orders.json?email=${encodeURIComponent(email)}&limit=1&sort=date_created:desc`, { headers });
+        if (guestOrdersRes.data && guestOrdersRes.data.length > 0) {
+          targetOrderId = guestOrdersRes.data[0].id;
+          console.log(`[CONTACT FORM] Resolved missing orderId to recent order #${targetOrderId}`);
+        } else {
+          // CREATE A DUMMY INCOMPLETE ORDER TO HOLD MESSAGES
+          console.log(`[CONTACT FORM] No order found for ${email}. Creating incomplete dummy order to hold messages.`);
+          try {
+            const newOrderRes = await axios.post(`${baseUrl}/orders.json`, {
+              status_id: 0, // Incomplete
+              billing_address: {
+                first_name: name || "Guest",
+                last_name: "Inquiry",
+                email: email || "guest@printsociety.com",
+                street_1: "N/A",
+                city: "N/A",
+                state: "N/A",
+                zip: "00000",
+                country_iso2: "US"
+              },
+              products: [
+                {
+                   name: "Support Inquiry Thread",
+                   price_inc_tax: 0,
+                   price_ex_tax: 0,
+                   quantity: 1
+                }
+              ]
+            }, { headers });
+            if (newOrderRes.data && newOrderRes.data.id) {
+              targetOrderId = newOrderRes.data.id.toString();
+              console.log(`[CONTACT FORM] Created dummy order #${targetOrderId} to hold messages for ${email}`);
+            }
+          } catch(orderEntryErr) {
+            console.error("[CONTACT FORM] Failed to create dummy order for tracking.", orderEntryErr);
+          }
+        }
+      }
+
+      // If we found an order (either provided or recent), log the message to BC.
+      if (targetOrderId) {
+        // We must fetch the order to get the correct customer_id (BigCommerce validation requires it)
+        const orderRes = await axios.get(`${baseUrl}/orders/${targetOrderId}.json`, { headers });
+        const customerId = orderRes.data.customer_id || 0;
+
+        await axios.post(`${baseUrl}/orders/${targetOrderId}/messages.json`, {
+          order_id: parseInt(targetOrderId),
+          customer_id: customerId,
+          message: `FROM CONTACT FORM (${name} - ${email}):\n${message}`,
+          subject: subject || "New Contact Inquiry",
+          is_customer_visible: true,
+          status: "read"
+        }, { headers });
+        console.log(`[CONTACT FORM] Successfully logged to BigCommerce order #${targetOrderId} messages.`);
+      } else {
+        console.log(`[CONTACT FORM] Could not find any order for email ${email} to attach BigCommerce message.`);
+      }
+    } catch (e) {
+      console.error("[CONTACT FORM] Failed to sync to BC order messages:", e);
+    }
+  }
+
+  res.json({ success: true });
 });
 
 app.get("/api/customer/orders/:id", async (req, res) => {
@@ -1513,6 +1684,60 @@ app.post("/api/newsletter/subscribe", async (req, res) => {
       source: "Storefront Footer",
       channel_id: 1
     });
+
+    try {
+      const config = getBCConfig();
+      if (config) {
+        const { storeHash, accessToken } = config;
+        const baseUrl = `https://api.bigcommerce.com/stores/${storeHash}/v2`;
+        let targetOrderId = "";
+        
+        const guestOrdersRes = await axios.get(`${baseUrl}/orders.json?email=${encodeURIComponent(email)}&limit=1&sort=date_created:desc`, {
+          headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+        });
+        
+        if (guestOrdersRes.data && guestOrdersRes.data.length > 0) {
+          targetOrderId = guestOrdersRes.data[0].id.toString();
+        } else {
+          // CREATE A DUMMY INCOMPLETE ORDER TO HOLD MESSAGES
+          const newOrderRes = await axios.post(`${baseUrl}/orders.json`, {
+            status_id: 0,
+            billing_address: {
+              first_name: "Subscriber",
+              last_name: "Newsletter",
+              email: email,
+              street_1: "N/A",
+              city: "N/A",
+              state: "N/A",
+              zip: "00000",
+              country_iso2: "US"
+            },
+            products: [
+              {
+                 name: "Newsletter Subscription Thread",
+                 price_inc_tax: 0,
+                 price_ex_tax: 0,
+                 quantity: 1
+              }
+            ]
+          }, { headers: { "X-Auth-Token": accessToken, "Accept": "application/json", "Content-Type": "application/json" } });
+          targetOrderId = newOrderRes.data.id.toString();
+        }
+
+        const customerId = guestOrdersRes.data && guestOrdersRes.data.length > 0 ? guestOrdersRes.data[0].customer_id : 0;
+        await axios.post(`${baseUrl}/orders/${targetOrderId}/messages.json`, {
+          order_id: parseInt(targetOrderId),
+          customer_id: customerId,
+          message: `FROM NEWSLETTER FORM (${email}):\nUser subscribed to the newsletter.`,
+          subject: "Newsletter Subscription",
+          is_customer_visible: false,
+          status: "read"
+        }, { headers: { "X-Auth-Token": accessToken, "Accept": "application/json", "Content-Type": "application/json" } });
+      }
+    } catch (err) {
+      console.error("Failed to log newsletter submission to BC messages", err);
+    }
+
     res.json({ success: true, message: "Subscription successful" });
   } catch (error: any) {
     // BigCommerce returns 409 if email already exists as a subscriber
@@ -1727,7 +1952,7 @@ app.post("/api/checkout/init", async (req, res) => {
 // FULL INTEGRATED CHECKOUT (On-site Payment)
 app.post("/api/checkout/process", async (req, res) => {
   const bc = getBCClient();
-  const { cart, email, nonce, shipping_address, shipping_id } = req.body;
+  const { cart, email, nonce, shipping_address, shipping_id, customer_message, payment_method } = req.body;
 
   if (!bc) return res.status(400).json({ error: "Store not configured." });
 
@@ -1755,9 +1980,23 @@ app.post("/api/checkout/process", async (req, res) => {
     };
 
     const stateName = stateMap[shipping_address.state] || shipping_address.state;
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || "0.0.0.0").toString().split(',')[0].trim();
+
+    let customerId = 0;
+    try {
+      const custRes = await axios.get(`https://api.bigcommerce.com/stores/${storeHash}/v3/customers?email:in=${encodeURIComponent(String(email))}`, {
+        headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+      });
+      if (custRes.data && custRes.data.data && custRes.data.data.length > 0) {
+        customerId = custRes.data.data[0].id;
+      }
+    } catch (e: any) {
+      console.error("Could not find customer by email", e.message);
+    }
 
     const orderData = {
-      customer_id: 0,
+      customer_id: customerId,
+      ip_address: clientIp,
       billing_address: {
         first_name: shipping_address.first_name || "Guest",
         last_name: shipping_address.last_name || "Customer",
@@ -1793,6 +2032,7 @@ app.post("/api/checkout/process", async (req, res) => {
         price_ex_tax: Number(item.price) || 0
       })),
       status_id: 0, // Incomplete
+      customer_message: customer_message || "Custom Checkout Order",
       external_id: `WEB-${Date.now()}`
     };
 
@@ -1825,7 +2065,67 @@ app.post("/api/checkout/process", async (req, res) => {
       });
       const paymentAccessToken = patRes.data.data.id;
 
-      // Step B: Submit Payment
+      // Add 3% store credit
+      if (customerId) {
+         const rewardAmount = parseFloat((totalAmount * 0.03).toFixed(2));
+         if (rewardAmount > 0) {
+           try {
+              const cRes = await axios.get(`https://api.bigcommerce.com/stores/${storeHash}/v2/customers/${customerId}.json`, {
+                 headers: { "X-Auth-Token": accessToken, "Accept": "application/json" }
+              });
+              const existingCredit = parseFloat(cRes.data.store_credit || 0);
+              const newCredit = parseFloat((existingCredit + rewardAmount).toFixed(2));
+              await axios.put(`https://api.bigcommerce.com/stores/${storeHash}/v2/customers/${customerId}.json`, {
+                 store_credit: newCredit.toString()
+              }, {
+                 headers: { "X-Auth-Token": accessToken, "Accept": "application/json", "Content-Type": "application/json" }
+              });
+              console.log(`Added $${rewardAmount} store credit to customer ${customerId}`);
+           } catch(e: any) {
+              console.error("Failed to add store credit", e.response?.data || e.message);
+           }
+         }
+      }
+
+      if (payment_method === 'link') {
+        if (!squareClient) {
+          throw new Error("Square payment gateway is not configured on this server. Add SQUARE_ACCESS_TOKEN to your environment.");
+        }
+        console.log(`Generating Square Payment Link for Order #${orderId}`);
+        try {
+          const sqRes = await squareClient.checkout.paymentLinks.create({
+              idempotencyKey: `sq-link-${orderId}-${Date.now()}`,
+              quickPay: {
+                locationId: process.env.VITE_SQUARE_LOCATION_ID || "",
+                name: `Store Order #${orderId}`,
+                priceMoney: { amount: BigInt(Math.round(totalAmount * 100)), currency: 'USD' }
+              },
+              checkoutOptions: {
+                acceptedPaymentMethods: {
+                  cashAppPay: true,
+                  afterpayClearpay: true,
+                  applePay: true,
+                  googlePay: true
+                }
+              }
+          });
+          
+          await axios.put(`${v2Url}/orders/${orderId}`, { status_id: 11 }, {
+            headers: { "X-Auth-Token": accessToken }
+          });
+
+          return res.json({
+              success: true,
+              orderId: orderId,
+              paymentUrl: sqRes.paymentLink?.url
+          });
+        } catch (sqErr: any) {
+          console.error("Square API Error:", JSON.stringify(sqErr.errors || sqErr.message));
+          throw new Error("Square Gateway Error: Failed to generate payment link");
+        }
+      }
+
+      // Step B: Submit Payment (Direct)
       // Always use Square — it is the configured payment gateway
       const paymentGatewayId = 'squarev2';
       

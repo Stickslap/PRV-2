@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getProduct, Product, buyNow, Variant } from "../lib/api";
 import { useStore } from "../store/useStore";
 import { ProductReviews } from "../components/ProductReviews";
+import { ProductComparison } from "../components/ProductComparison";
 import { ProductFeaturesBar } from "../components/ProductFeaturesBar";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, ArrowLeft, Shield, Truck, RotateCcw, Activity, CheckCircle2, XCircle } from "lucide-react";
@@ -17,10 +18,30 @@ export function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [specs, setSpecs] = useState<any>(null);
+  const [comparisonData, setComparisonData] = useState<any>(null);
   const [template, setTemplate] = useState<string>('standard');
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [currentVariant, setCurrentVariant] = useState<Variant | null>(null);
+  const [artworkDataUrl, setArtworkDataUrl] = useState<string | undefined>();
+  const [artworkNotes, setArtworkNotes] = useState<string>('');
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const addItem = useStore((state) => state.addItem);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error("File size exceeds 50MB limit");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setArtworkDataUrl(reader.result as string);
+        toast.success("Artwork loaded");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const calculatePrice = (p: Product, options: Record<number, number>) => {
     let price = Number(p.price) || 0;
@@ -105,8 +126,25 @@ export function ProductDetail() {
     }
   }, [product, selectedOptions]);
 
+  const [deliveryTimeframe, setDeliveryTimeframe] = useState<string>("3-5 Business Days");
+
   useEffect(() => {
+    // Fetch global settings for delivery timeframe
+    import("firebase/firestore").then(({ doc, getDoc }) => {
+      import("../lib/firebase").then(({ db }) => {
+        getDoc(doc(db, "settings", "global")).then((snap) => {
+          if (snap.exists() && snap.data().content) {
+            const data = JSON.parse(snap.data().content);
+            if (data.shipping?.timeframe) {
+              setDeliveryTimeframe(data.shipping.timeframe);
+            }
+          }
+        });
+      });
+    });
+
     if (id) {
+
       const savedTemplate = localStorage.getItem(`product_template_${id}`);
       if (savedTemplate) {
         setTemplate(savedTemplate);
@@ -162,6 +200,9 @@ export function ProductDetail() {
             standardWaterBased: false
           });
         }
+
+        const savedComparison = localStorage.getItem(`product_comparison_${id}`);
+        if (savedComparison) setComparisonData(JSON.parse(savedComparison));
       }).catch(err => {
         console.error("Failed to load product", err);
         setError(err.message || "Registry Error // Code 404");
@@ -175,7 +216,7 @@ export function ProductDetail() {
     if (product) {
       // Use the specific matching variant ID if found, otherwise fallback to base_variant_id
       const variantId = currentVariant?.id || product.base_variant_id || undefined;
-      addItem(product, variantId, selectedOptions, currentPrice);
+      addItem(product, variantId, selectedOptions, currentPrice, artworkDataUrl, artworkNotes);
       toast.success("ADED TO BAG", {
         style: {
           background: '#000',
@@ -195,7 +236,7 @@ export function ProductDetail() {
     if (product) {
       // Add to cart first
       const variantId = currentVariant?.id || product.base_variant_id || undefined;
-      addItem(product, variantId, selectedOptions, currentPrice);
+      addItem(product, variantId, selectedOptions, currentPrice, artworkDataUrl, artworkNotes);
       
       // Navigate to our custom checkout page
       navigate('/checkout');
@@ -394,21 +435,35 @@ export function ProductDetail() {
               </div>
               <div className="p-6">
                 
-                <div className="border border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-gray-50/50 mb-6 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                    </svg>
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest mb-1 text-center">CLICK TO UPLOAD ARTWORK</span>
-                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center">PDF, AI, PNG | MAX 50MB</span>
+                <div className="relative border border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-gray-50/50 mb-6 cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input type="file" onChange={handleFileUpload} accept="image/*,.pdf,.ai" className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                  
+                  {artworkDataUrl ? (
+                    <div className="flex flex-col items-center z-20" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(true); }}>
+                      <img src={artworkDataUrl} alt="Artwork Preview" className="w-16 h-16 object-cover rounded-lg shadow-sm border border-gray-200 mb-2 hover:scale-105 transition-transform" />
+                      <span className="text-[10px] font-black uppercase text-primary tracking-widest">ARTWORK ATTACHED</span>
+                      <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1 underline">CLICK TO VIEW</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest mb-1 text-center">CLICK TO UPLOAD ARTWORK</span>
+                      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center">PDF, AI, PNG | MAX 50MB</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3">ORDER NOTES</label>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3">ARTWORK / ORDER NOTES</label>
                   <textarea 
+                    value={artworkNotes}
+                    onChange={(e) => setArtworkNotes(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl p-4 text-[11px] outline-none focus:border-[#5719D3] resize-none h-24 bg-white"
-                    placeholder="Add any special instructions or details for this order..."
+                    placeholder="Add any special instructions, print instructions, or details for this file..."
                   />
                 </div>
 
@@ -428,6 +483,19 @@ export function ProductDetail() {
                     {currentVariant?.purchasing_disabled ? "UNAVAILABLE" : "BUY IT NOW"} <ArrowLeft className="w-3 h-3 rotate-180" />
                   </button>
                 </div>
+
+                {deliveryTimeframe && (
+                  <div className="mt-8 p-6 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <Truck className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase text-emerald-800 tracking-widest mb-1">Estimated Delivery timeframe</h4>
+                      <p className="text-xl font-headline font-black italic tracking-tighter text-emerald-600">{deliveryTimeframe}</p>
+                      <p className="text-[9px] text-emerald-600/70 font-bold uppercase mt-1">Based on global logistics protocol</p>
+                    </div>
+                  </div>
+                )}
 
               </div>
             </div>
@@ -557,6 +625,7 @@ export function ProductDetail() {
             </div>
           </section>
           
+          <ProductComparison data={comparisonData} />
           <ProductReviews productId={id || ''} />
         </div>
       </div>
@@ -689,6 +758,20 @@ export function ProductDetail() {
                 </p>
               )}
             </div>
+            
+            {deliveryTimeframe && (
+              <div className="mb-16 p-6 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Truck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black uppercase text-emerald-800 tracking-widest mb-1">Estimated Delivery timeframe</h4>
+                  <p className="text-xl font-headline font-black italic tracking-tighter text-emerald-600">{deliveryTimeframe}</p>
+                  <p className="text-[9px] text-emerald-600/70 font-bold uppercase mt-1">Based on global logistics protocol</p>
+                </div>
+              </div>
+            )}
+            
           </div>
         </div>
 
@@ -820,8 +903,38 @@ export function ProductDetail() {
           </div>
         </section>
 
+        <ProductComparison data={comparisonData} />
         <ProductReviews productId={id || ''} />
       </div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {isLightboxOpen && artworkDataUrl && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setIsLightboxOpen(false)}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest"
+              >
+                <XCircle className="w-5 h-5" /> CLOSE ENLARGEMENT
+              </button>
+              <img src={artworkDataUrl} alt="Enlarged Artwork" className="w-auto h-auto max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

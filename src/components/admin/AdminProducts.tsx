@@ -465,7 +465,7 @@ export function AdminProducts() {
 
 function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProduct, onClose: () => void, onSave: (id: number, template: string) => void }) {
   const [template, setTemplate] = useState(product.template || 'standard');
-  const [activeTab, setActiveTab] = useState<'template'|'details'|'features'|'video'>('template');
+  const [activeTab, setActiveTab] = useState<'template'|'details'|'features'|'video'|'comparison'>('template');
   
   const [features, setFeatures] = useState(() => {
     const saved = localStorage.getItem(`product_features_${product.id}`);
@@ -476,6 +476,21 @@ function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProdu
       { id: '3', label: 'BRIGHTEST COLOR', icon: 'flame' },
       { id: '4', label: 'FLO™ TECHNOLOGY', icon: 'zap' },
     ];
+  });
+
+  const [comparisonMatrix, setComparisonMatrix] = useState(() => {
+    const saved = localStorage.getItem(`product_comparison_${product.id}`);
+    if (saved) return JSON.parse(saved);
+    return {
+      durabilityLabel: 'Durability',
+      durabilityValue: '3-5 Year Outdoor Limit',
+      compatibilityLabel: 'Compatibility',
+      compatibilityValue: 'Eco-Solvent / UV / Latex',
+      adhesiveLabel: 'Adhesive Logic',
+      adhesiveValue: 'Permanent / Air Egress',
+      materialLabel: 'Material Specs',
+      materialValue: 'Ultra-Calendered PVC'
+    };
   });
 
   const [hero, setHero] = useState(() => {
@@ -519,6 +534,7 @@ function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProdu
     localStorage.setItem(`product_specs_${product.id}`, JSON.stringify(specs));
     localStorage.setItem(`product_hero_${product.id}`, JSON.stringify(hero));
     localStorage.setItem(`product_features_${product.id}`, JSON.stringify(features));
+    localStorage.setItem(`product_comparison_${product.id}`, JSON.stringify(comparisonMatrix));
     onClose();
   };
 
@@ -561,6 +577,12 @@ function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProdu
              className={`px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'video' ? 'text-primary border-b-2 border-primary': 'text-gray-400 hover:text-gray-900'}`}
            >
              Video Hero
+           </button>
+           <button 
+             onClick={() => setActiveTab('comparison')}
+             className={`px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'comparison' ? 'text-primary border-b-2 border-primary': 'text-gray-400 hover:text-gray-900'}`}
+           >
+             Comparison Matrix
            </button>
         </div>
 
@@ -918,6 +940,97 @@ function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProdu
                       rows={4}
                       className="w-full bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl text-xs font-medium outline-none focus:border-primary transition-all resize-none" 
                     />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'comparison' && (
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-900 mb-2">Dynamic Comparison Matrix</h3>
+                <p className="text-[11px] text-gray-500 mb-6 max-w-lg">Configure the explicit material intelligence matrix for this item, comparing its core attributes.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  {/* Category 1 */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase">Header 1</label>
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.durabilityLabel} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, durabilityLabel: e.target.value})} 
+                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest outline-none mb-1" 
+                      />
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.durabilityValue} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, durabilityValue: e.target.value})} 
+                        className="w-full bg-white border border-gray-200 px-3 py-2 rounded-lg text-xs outline-none" 
+                        placeholder="e.g. 3-5 Year Outdoor Limit"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Category 2 */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase">Header 2</label>
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.compatibilityLabel} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, compatibilityLabel: e.target.value})} 
+                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest outline-none mb-1" 
+                      />
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.compatibilityValue} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, compatibilityValue: e.target.value})} 
+                        className="w-full bg-white border border-gray-200 px-3 py-2 rounded-lg text-xs outline-none" 
+                        placeholder="e.g. Eco-Solvent / UV / Latex"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category 3 */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase">Header 3</label>
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.adhesiveLabel} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, adhesiveLabel: e.target.value})} 
+                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest outline-none mb-1" 
+                      />
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.adhesiveValue} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, adhesiveValue: e.target.value})} 
+                        className="w-full bg-white border border-gray-200 px-3 py-2 rounded-lg text-xs outline-none" 
+                        placeholder="e.g. Permanent / Air Egress"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category 4 */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[8px] font-bold text-gray-400 uppercase">Header 4</label>
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.materialLabel} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, materialLabel: e.target.value})} 
+                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-widest outline-none mb-1" 
+                      />
+                      <input 
+                        type="text" 
+                        value={comparisonMatrix.materialValue} 
+                        onChange={e => setComparisonMatrix({...comparisonMatrix, materialValue: e.target.value})} 
+                        className="w-full bg-white border border-gray-200 px-3 py-2 rounded-lg text-xs outline-none" 
+                        placeholder="e.g. Ultra-Calendered PVC"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -116,26 +116,66 @@ export function About() {
             </div>
           </div>
           <div>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={async (e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const name = `${fd.get('firstName')} ${fd.get('lastName')}`;
+              const email = fd.get('email') as string;
+              const message = fd.get('message') as string;
+              
+              const btn = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+              const originalText = btn.innerText;
+              btn.innerText = "SENDING...";
+              btn.disabled = true;
+
+              try {
+                await fetch('/api/contact', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name,
+                    email,
+                    subject: "About Page Contact",
+                    message,
+                    orderId: "",
+                    notificationEmail: "alerts@printsocietyco.com"
+                  })
+                });
+                // Note: Not writing to firebase 'threads' here but user could add it if desired, BigCommerce requirement fulfilled.
+                e.currentTarget.reset();
+                btn.innerText = "SENT! ✓";
+                setTimeout(() => {
+                  btn.innerText = originalText;
+                  btn.disabled = false;
+                }, 3000);
+              } catch (err) {
+                console.error(err);
+                btn.innerText = "ERROR";
+                setTimeout(() => {
+                  btn.innerText = originalText;
+                  btn.disabled = false;
+                }, 3000);
+              }
+            }}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">First Name</label>
-                  <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="JANE" />
+                  <input name="firstName" required type="text" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="JANE" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Last Name</label>
-                  <input type="text" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="DOE" />
+                  <input name="lastName" required type="text" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="DOE" />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Email Address</label>
-                <input type="email" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="JANE@EXAMPLE.COM" />
+                <input name="email" required type="email" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300" placeholder="JANE@EXAMPLE.COM" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Message</label>
-                <textarea rows={4} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300 resize-none" placeholder="HOW CAN WE HELP YOU?"></textarea>
+                <textarea name="message" required rows={4} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:text-gray-300 resize-none" placeholder="HOW CAN WE HELP YOU?"></textarea>
               </div>
-              <button type="button" className="w-full bg-black text-white py-4 rounded-xl font-headline font-black uppercase tracking-[0.2em] italic text-[13px] hover:bg-gray-800 transition-all">
+              <button type="submit" className="w-full bg-black text-white py-4 rounded-xl font-headline font-black uppercase tracking-[0.2em] italic text-[13px] hover:bg-gray-800 transition-all">
                 Send Message
               </button>
             </form>

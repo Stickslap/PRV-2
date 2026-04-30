@@ -38,14 +38,13 @@ export function Home() {
             </div>
             
             <h1 className="text-4xl sm:text-5xl md:text-[64px] font-headline font-black italic leading-[0.9] mb-8 lg:mb-12 tracking-tighter text-black uppercase transform -skew-x-2">
-              PRINT CUSTOM <br className="hidden sm:block" />
-              STICKERS AND <br className="hidden sm:block" />
-              PRINTS
+              PREMIUM PRINTABLE <br className="hidden sm:block" />
+              VINYL FOR EVERY <br className="hidden sm:block" />
+              PROJECT
             </h1>
             
             <p className="text-base md:text-xl text-gray-500 mx-auto lg:mx-0 max-w-xl mb-10 lg:mb-12 font-medium leading-relaxed">
-              Express delivery as fast as 2-4 business days after proof confirmation. 
-              <span className="text-gray-400 ml-1">free shipping!</span>
+              Express Delivery: 2–4 business days. Free Shipping included!
             </p>
             
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
@@ -59,7 +58,7 @@ export function Home() {
                 to="/shop" 
                 className="w-full sm:w-auto bg-white border border-gray-100 text-black px-8 py-4 lg:px-10 lg:py-5 rounded-2xl lg:rounded-3xl text-[13px] lg:text-[14px] font-black uppercase tracking-widest hover:border-black transition-all flex items-center justify-center gap-3 group"
               >
-                All sticker products 
+                All products 
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
@@ -87,7 +86,7 @@ export function Home() {
                 {/* Image Container with soft shadow and slight rotation */}
                 <div className="relative transform rotate-2 transition-transform duration-700 hover:rotate-0">
                    <img 
-                    src="https://res.cloudinary.com/dabgothkm/image/upload/v1777250500/Gemini_Generated_Image_skdlulskdlulskdl_1_b5eshy.png"
+                    src="https://res.cloudinary.com/dabgothkm/image/upload/v1776984931/artwork/pending/U5wYESZ92zcpcIKR86reFlv6bxw1/eyt1l0wtdfn1ggjm0fcg.png"
                     className="w-full h-auto drop-shadow-[0_40px_80px_rgba(0,0,0,0.15)]"
                     alt="Hand holding VW Bus Sticker"
                     onError={(e) => {

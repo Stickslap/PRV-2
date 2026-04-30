@@ -907,7 +907,7 @@ export function Dashboard() {
                       <p className="text-sm text-gray-600 font-medium italic leading-relaxed mb-6">"{review.comment}"</p>
                       
                       <div className="pt-6 border-t border-gray-50 flex items-center justify-between">
-                        <span className="text-[9px] font-black uppercase text-gray-400">{review.createdAt?.toDate().toLocaleDateString()}</span>
+                        <span className="text-[9px] font-black uppercase text-gray-400">{review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}</span>
                         <button 
                           onClick={() => handleDeleteReview(review.id)}
                           className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:opacity-70 transition-opacity"

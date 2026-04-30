@@ -21,6 +21,18 @@ export function Navbar() {
   const cartTotal = cart.reduce((acc, item) => acc + (Number(item.price) || 0) * item.quantity, 0);
   const timeoutRef = useRef<number | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+
+  const handleGlobalSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+      setMobileMenuOpen(false);
+    }
+  };
+
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
@@ -297,6 +309,16 @@ export function Navbar() {
           </div>
 
         <div className="flex items-center gap-3 lg:gap-6">
+          <form onSubmit={handleGlobalSearch} className="relative hidden md:block w-32 lg:w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search products..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-[11px] font-medium outline-none focus:border-black transition-all w-full"
+            />
+          </form>
           <Link to="/cart" className="flex items-center gap-2 text-[13px] font-medium text-gray-600 hover:text-primary transition-colors relative">
             <ShoppingBag className="w-5 h-5" />
             <div className="flex flex-col items-start leading-none">
@@ -347,6 +369,16 @@ export function Navbar() {
             className="fixed inset-0 bg-white z-40 lg:hidden flex flex-col pt-24 px-6 pb-12 overflow-y-auto"
           >
             <div className="flex flex-col gap-6 mb-12">
+              <form onSubmit={handleGlobalSearch} className="relative mb-2">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search products..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:border-black transition-all w-full"
+                />
+              </form>
               <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em]">Navigation</h3>
               <nav className="flex flex-col gap-4">
                 {/* Mobile Mega Menu Toggle */}
@@ -372,9 +404,18 @@ export function Navbar() {
                             <Link to={`/shop?category=${parent.id}`} onClick={() => setMobileMenuOpen(false)} className="text-sm font-black uppercase text-gray-900 tracking-widest">{parent.name}</Link>
                             <div className="pl-3 space-y-2 border-l border-gray-100">
                               {categories.filter(sub => sub.parent_id === parent.id && sub.is_visible).map(sub => (
-                                <Link key={sub.id} to={`/shop?category=${sub.id}`} onClick={() => setMobileMenuOpen(false)} className="text-xs font-medium text-gray-500 block hover:text-primary">
-                                  {sub.name}
-                                </Link>
+                                <div key={sub.id} className="space-y-1">
+                                  <Link to={`/shop?category=${sub.id}`} onClick={() => setMobileMenuOpen(false)} className="text-xs font-medium text-gray-600 font-bold block hover:text-primary pb-1">
+                                    {sub.name}
+                                  </Link>
+                                  <div className="pl-2 space-y-1">
+                                    {categories.filter(deepSub => deepSub.parent_id === sub.id && deepSub.is_visible).map(deepSub => (
+                                      <Link key={deepSub.id} to={`/shop?category=${deepSub.id}`} onClick={() => setMobileMenuOpen(false)} className="text-[11px] font-medium text-gray-400 block hover:text-primary">
+                                        - {deepSub.name}
+                                      </Link>
+                                    ))}
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </div>

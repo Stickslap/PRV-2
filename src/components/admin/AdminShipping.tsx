@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../../lib/firebase";
+import toast from "react-hot-toast";
 import { 
   Truck, 
   Search, 
@@ -49,16 +52,21 @@ export function AdminShipping({ onViewOrder }: AdminShippingProps) {
   const [selectedCarriers, setSelectedCarriers] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
+  const [shippingSettings, setShippingSettings] = useState<any>({ timeframe: "3-5 Business Days" });
 
   useEffect(() => {
     const fetchShippingData = async () => {
       try {
-        const [ordersRes, methodsRes] = await Promise.all([
+        const [ordersRes, methodsRes, snap] = await Promise.all([
           axios.get("/api/admin/shipping/orders"),
-          axios.get("/api/admin/shipping/methods")
+          axios.get("/api/admin/shipping/methods"),
+          getDoc(doc(db, "settings", "global"))
         ]);
         setOrders(ordersRes.data);
         setShippingMethods(methodsRes.data);
+        if (snap.exists() && snap.data().content) {
+            setShippingSettings(JSON.parse(snap.data().content).shipping || { timeframe: "3-5 Business Days" });
+        }
       } catch (err) {
         console.error("Error fetching shipping data:", err);
       } finally {
@@ -67,6 +75,18 @@ export function AdminShipping({ onViewOrder }: AdminShippingProps) {
     };
     fetchShippingData();
   }, []);
+
+  const handleSaveSettings = async () => {
+      try {
+          const snap = await getDoc(doc(db, "settings", "global"));
+          let current = snap.exists() && snap.data().content ? JSON.parse(snap.data().content) : {};
+          current.shipping = shippingSettings;
+          await setDoc(doc(db, "settings", "global"), { content: JSON.stringify(current) }, { merge: true });
+          toast.success("Shipping Protocol Updated");
+      } catch (e) {
+          toast.error("Failed to save settings");
+      }
+  };
 
   const carriers = useMemo(() => Array.from(new Set(orders.map(o => o.carrier).filter(Boolean))), [orders]);
   const statuses = ["pretransit", "transit", "delivered"];
@@ -436,6 +456,19 @@ export function AdminShipping({ onViewOrder }: AdminShippingProps) {
                  </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                 <div>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-3 block">Estimated Delivery Timeframe</label>
+                    <input 
+                      type="text" 
+                      value={shippingSettings.timeframe} 
+                      onChange={(e) => setShippingSettings({ ...shippingSettings, timeframe: e.target.value })}
+                      placeholder="e.g. 3-5 Business Days"
+                      className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-2xl text-sm font-black italic font-headline outline-none focus:bg-white focus:border-primary transition-all" 
+                    />
+                 </div>
+              </div>
+
               <div className="space-y-6">
                  {[
                    { label: "Automatic Label Protocol", desc: "Generate carrier labels automatically upon order verification.", enabled: true },
@@ -456,7 +489,7 @@ export function AdminShipping({ onViewOrder }: AdminShippingProps) {
 
               <div className="pt-6 border-t border-gray-100 flex justify-end gap-4">
                  <button className="px-8 py-3 bg-gray-50 text-gray-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all">Reset Default</button>
-                 <button className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg hover:shadow-primary/20">Apply Protocol</button>
+                 <button onClick={handleSaveSettings} className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg hover:shadow-primary/20">Apply Protocol</button>
               </div>
            </div>
         </div>

@@ -65,6 +65,23 @@ export function Support() {
 
     setSubmitting(true);
     try {
+      try {
+        await fetch(`/api/contact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name: "FAQ Form",
+            email: "faq-submission@printsociety.com", 
+            subject: "FAQ Question Submitted",
+            message: question.trim(),
+            orderId: "",
+            notificationEmail: "alerts@printsocietyco.com"
+          })
+        });
+      } catch (err) {
+        console.error("Failed to sync FAQ form to API", err);
+      }
+
       await addDoc(collection(db, "faqs"), {
         question: question.trim(),
         status: "PENDING",

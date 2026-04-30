@@ -197,17 +197,25 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
                      <span className="text-gray-400">🌐</span>
                      <span className="font-medium tracking-tight whitespace-nowrap">{order.billing_address?.country || "Default Region"}</span>
                      
-                     <span className="text-gray-400">📞</span>
-                     <span className="tracking-tighter">{order.billing_address?.phone || "N/A"}</span>
-                     
-                     <span className="text-gray-400">✉️</span>
-                     <a href={`mailto:${order.billing_address?.email}`} className="text-blue-500 hover:underline font-medium">{order.billing_address?.email}</a>
+                     {/* Quick Contact Box */}
+                     <div className="col-span-2 mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                           <span className="text-gray-400 text-sm">📞</span>
+                           <span className="text-sm font-bold tracking-tighter">{order.billing_address?.phone || "N/A"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <span className="text-gray-400 text-sm">✉️</span>
+                           <a href={`mailto:${order.billing_address?.email}`} className="text-blue-600 hover:underline font-bold text-sm">{order.billing_address?.email}</a>
+                        </div>
+                     </div>
                      
                      <span className="text-gray-400">📅</span>
                      <span className="text-gray-500">{new Date(order.date).toLocaleString()}</span>
                      
                      <span className="text-gray-400 text-[10px] font-bold leading-none uppercase">IP Log</span>
-                     <span className="text-blue-500 font-mono text-[11px]">{order.ip_address}</span>
+                     <span className="inline-block px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest w-fit">
+                       {order.ip_address || "0.0.0.0"}
+                     </span>
                      
                      <span className="text-gray-400 hover:text-gray-600 cursor-pointer">💳</span>
                      <span className="font-bold uppercase text-[10px] text-gray-400">{order.payment_method}</span>

@@ -8,9 +8,25 @@ import { Filter, ChevronDown, Tag, X } from "lucide-react";
 export function ProductList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryId = searchParams.get('category');
-  
+  const initialSearch = searchParams.get('q') || "";
+
   const { products, categories, setProducts, setCategories } = useStore();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+
+  useEffect(() => {
+    setSearchTerm(searchParams.get('q') || "");
+  }, [searchParams]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    const newParams = new URLSearchParams(searchParams);
+    if (val) {
+      newParams.set('q', val);
+    } else {
+      newParams.delete('q');
+    }
+    setSearchParams(newParams);
+  };
   const [loading, setLoading] = useState(products.length === 0);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +57,28 @@ export function ProductList() {
   const activeCategory = categories.find(c => c.id === Number(categoryId));
 
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!searchTerm) {
+      return !categoryId || (p.categories && p.categories.includes(Number(categoryId)));
+    }
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Core fields
+    const nameMatch = p.name?.toLowerCase().includes(searchLower);
+    const skuMatch = p.sku?.toLowerCase().includes(searchLower);
+    
+    // Bio/Description
+    const descMatch = p.description?.toLowerCase().includes(searchLower);
+    
+    // Tags/Mentions/Keywords/Meta
+    const keywordsMatch = p.search_keywords?.toLowerCase().includes(searchLower) || JSON.stringify(p).toLowerCase().includes(searchLower);
+    
+    // Custom Fields (Technical specs like Ink Compatibility, Material Thickness, Finish)
+    const customFieldsMatch = p.custom_fields?.some(field => 
+      field.name?.toLowerCase().includes(searchLower) || 
+      field.value?.toLowerCase().includes(searchLower)
+    );
+
+    const matchesSearch = nameMatch || skuMatch || descMatch || keywordsMatch || customFieldsMatch;
     
     const matchesCategory = !categoryId || (p.categories && p.categories.includes(Number(categoryId)));
     
@@ -112,7 +148,7 @@ export function ProductList() {
               type="text"
               placeholder="Search products..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-11 pr-6 py-2.5 bg-gray-50 border border-gray-200 rounded-full font-bold uppercase text-[10px] tracking-widest outline-none focus:border-black transition-all w-full md:w-64"
             />
           </div>

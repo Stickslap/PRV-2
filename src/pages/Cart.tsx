@@ -1,10 +1,12 @@
 import { useStore } from "../store/useStore";
 import { Link } from "react-router-dom";
-import { Trash2, Plus, Minus, ArrowRight, ShoppingCart, ArrowLeft, Shield } from "lucide-react";
+import { Trash2, Plus, Minus, ArrowRight, ShoppingCart, ArrowLeft, Shield, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useState } from "react";
 
 export function Cart() {
   const { cart, removeItem, updateQuantity } = useStore();
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   const getOptionsList = (item: any) => {
@@ -97,13 +99,33 @@ export function Cart() {
 
                       {/* Options */}
                       {optionsList.length > 0 && (
-                        <div className="mt-4 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="mt-4 mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {optionsList.map((o, idx) => (
                             <div key={idx} className="bg-gray-50 border border-gray-100 rounded-lg p-3">
                               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{o.name}</p>
                               <p className="text-xs font-black uppercase text-gray-900 tracking-wider">{o.value}</p>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Artwork Display */}
+                      {item.artworkDataUrl && (
+                        <div className="mb-6 flex gap-4 bg-[#f9fafb] border border-gray-100 p-4 rounded-xl">
+                           <div 
+                             className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0 cursor-pointer hover:border-primary transition-colors"
+                             onClick={() => setLightboxImage(item.artworkDataUrl!)}
+                           >
+                             <img src={item.artworkDataUrl} alt="Attached Artwork" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                           </div>
+                           <div className="flex-1">
+                             <h4 className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">Attached Artwork</h4>
+                             {item.artworkNotes ? (
+                               <p className="text-xs text-gray-600 font-medium line-clamp-2 italic">“{item.artworkNotes}”</p>
+                             ) : (
+                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">No Notes</p>
+                             )}
+                           </div>
                         </div>
                       )}
 
@@ -181,6 +203,23 @@ export function Cart() {
           </div>
         </div>
       </div>
+
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-pointer"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest z-50"
+            >
+              <XCircle className="w-5 h-5" /> CLOSE ENLARGEMENT
+            </button>
+            <img src={lightboxImage} alt="Enlarged Artwork" className="w-auto h-auto max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

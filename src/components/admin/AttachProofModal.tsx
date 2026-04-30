@@ -133,12 +133,21 @@ export function AttachProofModal({ orderId, onClose }: AttachProofModalProps) {
           <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">Attach New Proof</label>
           <div className="space-y-3">
             <input 
-              type="text" 
-              value={proofUrl}
-              onChange={e => setProofUrl(e.target.value)}
-              placeholder="Paste Image URL..." 
-              className="w-full p-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary"
+              type="file" 
+              accept="image/*,.pdf"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = () => setProofUrl(reader.result as string);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="w-full p-3 border border-gray-200 bg-white rounded-xl text-sm outline-none focus:border-primary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-[#6b21a8]"
             />
+            {proofUrl && (
+              <img src={proofUrl} alt="Preview" className="w-full max-h-32 object-contain bg-white border border-gray-200 rounded-lg p-2" />
+            )}
             <div className="flex gap-2">
               <select 
                 value={status} 

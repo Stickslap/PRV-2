@@ -15,6 +15,9 @@ export function AdminSettings() {
     officeHoursSun: "Closed",
     instagramUrl: "#",
     twitterUrl: "#",
+    facebookUrl: "#",
+    tiktokUrl: "#",
+    youtubeUrl: "#",
     megaMenu: "",
     footerLinks: "",
     notificationEmail: "alerts@printsocietyco.com"
@@ -67,6 +70,9 @@ export function AdminSettings() {
       officeHoursSun: fd.get("officeHoursSun"),
       instagramUrl: fd.get("instagramUrl"),
       twitterUrl: fd.get("twitterUrl"),
+      facebookUrl: fd.get("facebookUrl"),
+      tiktokUrl: fd.get("tiktokUrl"),
+      youtubeUrl: fd.get("youtubeUrl"),
       megaMenu: fd.get("megaMenu"),
       footerLinks: fd.get("footerLinks"),
       notificationEmail: fd.get("notificationEmail"),
@@ -167,6 +173,18 @@ export function AdminSettings() {
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Twitter URL</label>
             <input name="twitterUrl" defaultValue={settings.twitterUrl} className="w-full p-3 border border-gray-200 rounded-xl text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Facebook URL</label>
+            <input name="facebookUrl" defaultValue={settings.facebookUrl} className="w-full p-3 border border-gray-200 rounded-xl text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">TikTok URL</label>
+            <input name="tiktokUrl" defaultValue={settings.tiktokUrl} className="w-full p-3 border border-gray-200 rounded-xl text-sm" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">YouTube URL</label>
+            <input name="youtubeUrl" defaultValue={settings.youtubeUrl} className="w-full p-3 border border-gray-200 rounded-xl text-sm" />
           </div>
         </div>
 
