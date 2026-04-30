@@ -1,6 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Request, Response } from 'express';
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: Request, res: Response) {
   const keys = Object.keys(process.env).filter(k =>
     k.startsWith('BIG') || k.startsWith('SQUARE') || k === 'NODE_ENV' || k === 'VERCEL'
   );
