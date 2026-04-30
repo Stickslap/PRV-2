@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
-import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
+import { PaymentForm, CreditCard, CashAppPay, AfterpayButton, Divider } from 'react-square-web-payments-sdk';
 import { XCircle } from 'lucide-react';
 
 // Global type for BigCommerce SDK
@@ -629,6 +629,14 @@ export function Checkout() {
                           applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
                           locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
                           cardTokenizeResponseReceived={handleSquareTokenization}
+                          createPaymentRequest={() => ({
+                            countryCode: 'US',
+                            currencyCode: 'USD',
+                            total: {
+                              amount: (total || 10).toFixed(2),
+                              label: 'Order Total',
+                            },
+                          })}
                         >
                           <CreditCard
                             buttonProps={{
@@ -652,6 +660,19 @@ export function Checkout() {
                           >
                             {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
                           </CreditCard>
+
+                          {/* Alternative payment methods */}
+                          <div className="mt-4">
+                            <div className="flex items-center gap-3 my-4">
+                              <div className="flex-1 h-px bg-gray-200" />
+                              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">or pay with</span>
+                              <div className="flex-1 h-px bg-gray-200" />
+                            </div>
+                            <div className="space-y-3">
+                              <CashAppPay />
+                              <AfterpayButton />
+                            </div>
+                          </div>
                         </PaymentForm>
                         </div>
                       ) : (
