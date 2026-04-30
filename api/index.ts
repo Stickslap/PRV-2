@@ -595,6 +595,7 @@ app.post("/api/checkout/process", async (req, res) => {
       try {
         const { SquareClient, SquareEnvironment } = await import("square");
         const token = process.env.SQUARE_ACCESS_TOKEN;
+        const locationId = process.env.VITE_SQUARE_LOCATION_ID;
         if (token) {
           const sq = new SquareClient({
             environment: token.startsWith("EAAA") ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
@@ -604,9 +605,14 @@ app.post("/api/checkout/process", async (req, res) => {
             sourceId: nonce,
             idempotencyKey: `sq-${orderId}-${Date.now()}`,
             amountMoney: { amount: BigInt(Math.round(total * 100)), currency: "USD" },
-            referenceId: orderId.toString()
+            referenceId: `BC-${orderId}`,
+            note: `Print Society Co. Order #${orderId} | ${email}`,
+            ...(locationId ? { locationId } : {})
           });
-          await axios.put(`${v2}/orders/${orderId}`, { status_id: 11, payment_method: "Square" }, { headers: h });
+          await axios.put(`${v2}/orders/${orderId}`, {
+            status_id: 11,
+            payment_method: `Square (Order #${orderId})`
+          }, { headers: h });
           console.log(`[checkout/process] Square payment captured for order #${orderId}`);
         }
       } catch (sqErr: any) {
