@@ -2119,7 +2119,7 @@ app.post("/api/checkout/process", async (req, res) => {
               }
           });
           
-          await axios.put(`${v2Url}/orders/${orderId}`, { status_id: 11 }, {
+          await axios.put(`${v2Url}/orders/${orderId}`, { status_id: 1 }, {
             headers: { "X-Auth-Token": accessToken }
           });
 

@@ -578,10 +578,10 @@ app.post("/api/checkout/process", async (req, res) => {
             priceMoney: { amount: BigInt(Math.round(total * 100)), currency: "USD" }
           },
           checkoutOptions: {
-            acceptedPaymentMethods: { cashAppPay: true, applePay: true, googlePay: true }
+            acceptedPaymentMethods: { cashAppPay: true, applePay: true, googlePay: true, afterpayClearpay: true }
           }
         });
-        await axios.put(`${v2}/orders/${orderId}`, { status_id: 11 }, { headers: h });
+        await axios.put(`${v2}/orders/${orderId}`, { status_id: 1 }, { headers: h }); // 1 = Pending
         return res.json({ success: true, orderId, total, paymentUrl: sqRes.paymentLink?.url });
       } catch (sqErr: any) {
         const sqDetail = sqErr?.body ? JSON.stringify(sqErr.body) : sqErr?.errors ? JSON.stringify(sqErr.errors) : sqErr.message;
