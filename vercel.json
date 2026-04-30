@@ -4,19 +4,24 @@
     "api/index.ts": { "maxDuration": 30 },
     "api/ping.ts": { "maxDuration": 10 }
   },
-  "rewrites": [
+  "headers": [
     {
-      "source": "/api/ping",
-      "destination": "/api/ping.ts"
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "source": "/(.*)\\.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
+  ],
+  "rewrites": [
+    { "source": "/api/ping", "destination": "/api/ping.ts" },
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
 
