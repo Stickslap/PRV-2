@@ -51,8 +51,8 @@ app.get("/api/env-dump", (req, res) => {
 
 // BigCommerce Configuration Helper
 const getBCConfig = () => {
-  let storeHash = (process.env.BIGCOMMERCE_STORE_HASH || process.env.VITE_BC_STORE_HASH || "").trim();
-  const accessToken = (process.env.BIGCOMMERCE_ACCESS_TOKEN || process.env.VITE_BC_ACCESS_TOKEN || "").trim();
+  let storeHash = (process.env.BIGCOMMERCE_STORE_HASH || process.env.VITE_BC_STORE_HASH || "").replace(/['"]/g, '').trim();
+  const accessToken = (process.env.BIGCOMMERCE_ACCESS_TOKEN || process.env.VITE_BC_ACCESS_TOKEN || "").replace(/['"]/g, '').trim();
 
   if (!storeHash || !accessToken) return null;
 
@@ -188,13 +188,21 @@ app.get("/api/products", async (req, res) => {
     } else {
       console.error("Error fetching products from BC:", error.message);
       if (error.response) console.error("BC Error details:", error.response.data);
-      return res.status(500).json({ error: `Connection Error: ${error.message}` });
+      return res.status(500).json({ 
+        error: `Connection Error: ${error.message}`, 
+        details: error.response?.data,
+        status: error.response?.status
+      });
     }
   }
 });
 
 app.get("/api/products/:id", async (req, res) => {
   const { id } = req.params;
+  if (!id || id === 'undefined' || id === 'null') {
+    return res.status(400).json({ error: "Invalid product ID" });
+  }
+
   const cacheKey = `product_${id}`;
   const cachedProduct = getFromCache(cacheKey, CACHE_TTL.product);
   if (cachedProduct) {
@@ -210,11 +218,18 @@ app.get("/api/products/:id", async (req, res) => {
     setToCache(cacheKey, response.data);
     res.json(response.data);
   } catch (error: any) {
+    if (error.response?.status === 404) {
+      return res.status(404).json({ error: "Product not found in BigCommerce." });
+    }
     if (error.response?.status === 429) {
       return res.status(429).json({ error: "Rate limit hit. Please retry." });
     }
     console.error(`Error fetching product ${id} from BC:`, error.message);
-    res.status(500).json({ error: `Failed to fetch product ${id}` });
+    res.status(500).json({ 
+      error: `Failed to fetch product ${id}`, 
+      details: error.response?.data,
+      status: error.response?.status
+    });
   }
 });
 
@@ -461,7 +476,8 @@ app.get("/api/admin/orders/:id/messages", async (req, res) => {
     console.error("BC Get Messages Error:", errorData);
     res.status(500).json({ 
       error: "Failed to fetch order messages",
-      details: typeof errorData === 'object' ? JSON.stringify(errorData) : errorData
+      details: typeof errorData === 'object' ? JSON.stringify(errorData) : errorData,
+      status: error.response?.status
     });
   }
 });
@@ -2077,7 +2093,11 @@ app.get("/api/categories", async (req, res) => {
     res.json(response.data);
   } catch (error: any) {
     console.error("BC Categories Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to fetch categories" });
+    res.status(500).json({ 
+      error: "Failed to fetch categories",
+      details: error.response?.data || error.message,
+      status: error.response?.status
+    });
   }
 });
 
