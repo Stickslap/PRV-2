@@ -579,9 +579,10 @@ app.post("/api/checkout/process", async (req, res) => {
           console.log(`[checkout/process] Square payment captured for order #${orderId}`);
         }
       } catch (sqErr: any) {
-        console.error("[checkout/process] Square error:", sqErr.message);
-        // Order exists in BC — return success even if Square had an issue
-        return res.json({ success: true, orderId, total, warning: "Payment processing issue — contact support." });
+        const sqDetail = sqErr?.body ? JSON.stringify(sqErr.body) : sqErr?.errors ? JSON.stringify(sqErr.errors) : sqErr.message;
+        console.error("[checkout/process] Square error detail:", sqDetail);
+        // Payment failed — tell the client why
+        return res.status(422).json({ success: false, orderId, error: "Payment failed", squareError: sqDetail });
       }
     }
 
@@ -589,6 +590,22 @@ app.post("/api/checkout/process", async (req, res) => {
   } catch (e: any) {
     console.error("[checkout/process] Error:", e.response?.data || e.message);
     res.status(500).json({ error: e.message, details: e.response?.data });
+  }
+});
+
+// Square health check
+app.get("/api/health/square", async (_req, res) => {
+  const token = process.env.SQUARE_ACCESS_TOKEN;
+  if (!token) return res.json({ connected: false, error: "SQUARE_ACCESS_TOKEN not set" });
+  try {
+    const { SquareClient, SquareEnvironment } = await import("square");
+    const isProd = token.startsWith("EAAA");
+    const sq = new SquareClient({ environment: isProd ? SquareEnvironment.Production : SquareEnvironment.Sandbox, token });
+    const locRes = await sq.locations.list();
+    const locations = locRes.locations || [];
+    res.json({ connected: true, environment: isProd ? "Production" : "Sandbox", locationCount: locations.length, locations: locations.map((l: any) => ({ id: l.id, name: l.name, status: l.status })) });
+  } catch (e: any) {
+    res.json({ connected: false, error: e.message, detail: e?.body || e?.errors });
   }
 });
 
