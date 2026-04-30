@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
+  Menu,
+  X,
   LayoutDashboard, 
   Package, 
   Users, 
@@ -91,6 +93,8 @@ export function Admin() {
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [viewCustomerModal, setViewCustomerModal] = useState<boolean>(false);
   
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -121,11 +125,26 @@ export function Admin() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      {/* Sidebar - Desktop Only */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-200 pt-24 px-4 hidden lg:block z-40">
-        <nav className="space-y-1">
+      {/* Mobile Drawer Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-gray-200 pt-24 px-0 flex flex-col z-50 transition-transform duration-300 lg:translate-x-0 overflow-y-auto ${
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+      }`}>
+        <div className="absolute top-6 right-4 lg:hidden">
+          <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-500 hover:text-black">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <nav className="flex-1 space-y-1 pb-16 px-4">
           <button 
-            onClick={() => setActiveTab("overview")}
+            onClick={() => { setActiveTab("overview"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "overview" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -138,7 +157,7 @@ export function Admin() {
           </div>
 
           <button 
-            onClick={() => setActiveTab("products")}
+            onClick={() => { setActiveTab("products"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "products" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -147,7 +166,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("shipping")}
+            onClick={() => { setActiveTab("shipping"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "shipping" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -156,7 +175,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("customers")}
+            onClick={() => { setActiveTab("customers"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "customers" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -165,7 +184,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("messages")}
+            onClick={() => { setActiveTab("messages"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "messages" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -174,7 +193,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("emails")}
+            onClick={() => { setActiveTab("emails"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "emails" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -183,7 +202,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("faqs")}
+            onClick={() => { setActiveTab("faqs"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "faqs" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -192,7 +211,7 @@ export function Admin() {
           </button>
           
           <button 
-            onClick={() => setActiveTab("journals")}
+            onClick={() => { setActiveTab("journals"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "journals" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -201,7 +220,7 @@ export function Admin() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("about")}
+            onClick={() => { setActiveTab("about"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "about" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -210,7 +229,7 @@ export function Admin() {
           </button>
 
           <button 
-             onClick={() => setActiveTab("settings")}
+             onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
               activeTab === "settings" ? "bg-primary/10 text-primary" : "hover:bg-gray-50 text-gray-400"
             }`}
@@ -231,7 +250,7 @@ export function Admin() {
           </button>
         </nav>
 
-        <div className="absolute bottom-8 left-4 right-4 p-4 bg-secondary rounded-2xl">
+        <div className="mx-4 mb-8 mt-auto p-4 bg-secondary rounded-2xl">
           <p className="text-[10px] font-black uppercase mb-1">BigCommerce Link</p>
           <p className="text-[10px] text-gray-600 mb-3 leading-tight font-medium">Full management tools are active in the BC control panel.</p>
           <a 
@@ -248,12 +267,20 @@ export function Admin() {
       <main className="lg:pl-64">
         <div className="max-w-[1400px] mx-auto p-8">
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <h1 className="text-4xl font-headline font-black uppercase tracking-tighter italic text-gray-900">Workstation</h1>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="p-2 -ml-2 lg:hidden text-gray-500 hover:text-primary transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <h1 className="text-4xl font-headline font-black uppercase tracking-tighter italic text-gray-900">Workstation</h1>
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Print Society Operational Hub • v1.0.4</p>
               </div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Print Society Operational Hub • v1.0.4</p>
             </div>
 
             <div className="flex items-center gap-3">

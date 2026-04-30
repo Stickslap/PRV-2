@@ -11,6 +11,7 @@ import { db } from "../lib/firebase";
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [mobileMegaMenuOpen, setMobileMegaMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { products, setProducts, categories, setCategories, isLoading, setIsLoading } = useStore();
   const [megaMenuLinks, setMegaMenuLinks] = useState<{label: string, url: string}[]>([]);
@@ -348,7 +349,41 @@ export function Navbar() {
             <div className="flex flex-col gap-6 mb-12">
               <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em]">Navigation</h3>
               <nav className="flex flex-col gap-4">
-                <Link to="/shop" onClick={() => setMobileMenuOpen(false)} className="text-2xl font-headline font-black italic uppercase italic uppercase tracking-tighter text-gray-900">All Products</Link>
+                {/* Mobile Mega Menu Toggle */}
+                <div>
+                  <button 
+                    onClick={() => setMobileMegaMenuOpen(!mobileMegaMenuOpen)}
+                    className="flex justify-between items-center w-full text-2xl font-headline font-black italic uppercase tracking-tighter text-gray-900"
+                  >
+                    All Products
+                    <ChevronDown className={`w-6 h-6 transition-transform ${mobileMegaMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence>
+                    {mobileMegaMenuOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden mt-4 pl-4 border-l-2 border-gray-100 space-y-4"
+                      >
+                        <Link to="/shop" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold text-gray-700 block mb-4">Shop All</Link>
+                        {categories.filter(c => c.parent_id === 0 && c.is_visible).map(parent => (
+                          <div key={parent.id} className="space-y-2 pb-2">
+                            <Link to={`/shop?category=${parent.id}`} onClick={() => setMobileMenuOpen(false)} className="text-sm font-black uppercase text-gray-900 tracking-widest">{parent.name}</Link>
+                            <div className="pl-3 space-y-2 border-l border-gray-100">
+                              {categories.filter(sub => sub.parent_id === parent.id && sub.is_visible).map(sub => (
+                                <Link key={sub.id} to={`/shop?category=${sub.id}`} onClick={() => setMobileMenuOpen(false)} className="text-xs font-medium text-gray-500 block hover:text-primary">
+                                  {sub.name}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 <Link to="/journal" onClick={() => setMobileMenuOpen(false)} className="text-2xl font-headline font-black italic uppercase tracking-tighter text-gray-900">Journal</Link>
                 <Link to="/track" onClick={() => setMobileMenuOpen(false)} className="text-2xl font-headline font-black italic uppercase tracking-tighter text-gray-900">Track Order</Link>
                 <Link to="/about" onClick={() => setMobileMenuOpen(false)} className="text-2xl font-headline font-black italic uppercase tracking-tighter text-gray-900">About Us</Link>

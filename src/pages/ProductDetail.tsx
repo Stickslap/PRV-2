@@ -13,6 +13,7 @@ export function ProductDetail() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [specs, setSpecs] = useState<any>(null);
@@ -161,6 +162,11 @@ export function ProductDetail() {
             standardWaterBased: false
           });
         }
+      }).catch(err => {
+        console.error("Failed to load product", err);
+        setError(err.message || "Registry Error // Code 404");
+        setProduct(null);
+        setLoading(false);
       });
     }
   }, [id]);
@@ -197,6 +203,7 @@ export function ProductDetail() {
   };
 
   if (loading) return <div className="pt-40 text-center font-headline font-black animate-pulse uppercase tracking-[0.2em] text-xs">Accessing Lab Entry...</div>;
+  if (error) return <div className="pt-40 text-center font-headline font-black uppercase tracking-[0.2em] text-xs text-red-500">{error}</div>;
   if (!product) return <div className="pt-40 text-center font-headline font-black uppercase tracking-[0.2em] text-xs">Registry Error // Code 404</div>;
 
   const getCustomField = (name: string) => product?.custom_fields?.find(f => f.name === name)?.value;
