@@ -3,26 +3,31 @@ import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
 import cors from "cors";
-import { SquareClient, SquareEnvironment } from "square";
 
 dotenv.config();
 
-// Initialize Square Client (wrapped in try-catch to prevent crashing all routes)
-let squareClient: any = null;
-try {
-  if (process.env.SQUARE_ACCESS_TOKEN) {
+// Lazy Square SDK loader — dynamic import keeps it off the module-level critical path
+// so Vercel can bundle/import this file without crashing on CJS/ESM interop.
+let _squareClient: any = null;
+async function getSquareClient(): Promise<any> {
+  if (_squareClient) return _squareClient;
+  const token = process.env.SQUARE_ACCESS_TOKEN;
+  if (!token) return null;
+  try {
+    const { SquareClient, SquareEnvironment } = await import("square");
     const isProduction =
       process.env.VITE_SQUARE_APPLICATION_ID?.startsWith('sq0idp-') ||
-      process.env.SQUARE_ACCESS_TOKEN.startsWith('EAAA') ||
+      token.startsWith('EAAA') ||
       process.env.NODE_ENV === "production";
-
-    squareClient = new SquareClient({
+    _squareClient = new SquareClient({
       environment: isProduction ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
-      token: process.env.SQUARE_ACCESS_TOKEN,
+      token,
     });
+    return _squareClient;
+  } catch (e: any) {
+    console.error("[server] Square SDK lazy-load failed:", e?.message);
+    return null;
   }
-} catch (squareInitErr: any) {
-  console.error("[server] Square SDK init failed:", squareInitErr?.message);
 }
 
 const app = express();
@@ -2091,6 +2096,7 @@ app.post("/api/checkout/process", async (req, res) => {
       }
 
       if (payment_method === 'link') {
+        const squareClient = await getSquareClient();
         if (!squareClient) {
           throw new Error("Square payment gateway is not configured on this server. Add SQUARE_ACCESS_TOKEN to your environment.");
         }
@@ -2136,12 +2142,13 @@ app.post("/api/checkout/process", async (req, res) => {
         const providerNames: Record<string, string> = { "squarev2": "Square", "braintree": "Credit Card" };
         const paymentMethodName = providerNames[paymentGatewayId] || "Credit Card";
 
-        if (paymentGatewayId === 'squarev2' && squareClient && nonce && !nonce.includes("fake")) {
+        const squareClient2 = await getSquareClient();
+        if (paymentGatewayId === 'squarev2' && squareClient2 && nonce && !nonce.includes("fake")) {
           // Process payment directly with Square API
           console.log(`Processing Square Payment for Order #${orderId}`);
           
           try {
-            await squareClient.payments.create({
+            await squareClient2.payments.create({
               sourceId: nonce,
               idempotencyKey: `sq-payment-${orderId}-${Date.now()}`,
               amountMoney: {
