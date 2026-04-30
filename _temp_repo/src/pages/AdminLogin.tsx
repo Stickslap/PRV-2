@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithGoogle, auth, logout, signInAnonymouslyWithFirebase, db } from "../lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { signInWithGoogle, auth, logout, signInAnonymouslyWithFirebase } from "../lib/firebase";
 import { motion } from "motion/react";
 import { Shield, ArrowLeft, Lock } from "lucide-react";
 import toast from "react-hot-toast";
@@ -35,34 +34,12 @@ export function AdminLogin() {
           console.warn("Firebase anonymous auth unavailable — using localStorage session only.", firebaseErr);
         }
         
-        try {
-          await addDoc(collection(db, "admin_login_logs"), {
-            email: username,
-            success: true,
-            method: "STAFF_LOGIN",
-            createdAt: serverTimestamp()
-          });
-        } catch (logErr) {
-          console.error("Failed to log admin login", logErr);
-        }
-
         localStorage.setItem("staff_authenticated", "true");
         localStorage.setItem("staff_session_time", Date.now().toString());
         toast.success("Staff Authentication Successful");
         navigate("/admin");
       }
     } catch (err: any) {
-      try {
-        await addDoc(collection(db, "admin_login_logs"), {
-          email: username,
-          success: false,
-          method: "STAFF_LOGIN",
-          errorMessage: err.response?.data?.error || "Invalid Security Credentials",
-          createdAt: serverTimestamp()
-        });
-      } catch (logErr) {
-        console.error("Failed to log admin login", logErr);
-      }
       toast.error(err.response?.data?.error || "Invalid Security Credentials");
     } finally {
       setLoading(false);
@@ -75,50 +52,16 @@ export function AdminLogin() {
       const user = await signInWithGoogle();
       
       if (user && user.email && (ADMIN_EMAILS.includes(user.email) || user.email.toLowerCase().includes("arlington.a.teheran"))) {
-        try {
-          await addDoc(collection(db, "admin_login_logs"), {
-            email: user.email,
-            success: true,
-            method: "GOOGLE_LOGIN",
-            createdAt: serverTimestamp()
-          });
-        } catch (logErr) {
-          console.error("Failed to log admin login", logErr);
-        }
-
         localStorage.setItem("staff_authenticated", "true");
         localStorage.setItem("staff_session_time", Date.now().toString());
         toast.success("Identity Verified");
         navigate("/admin");
       } else {
-        try {
-          await addDoc(collection(db, "admin_login_logs"), {
-            email: user?.email || "Unknown",
-            success: false,
-            method: "GOOGLE_LOGIN",
-            errorMessage: "Unauthorized: Credentials rejected by security protocol.",
-            createdAt: serverTimestamp()
-          });
-        } catch (logErr) {
-          console.error("Failed to log admin login", logErr);
-        }
-
         await logout();
         toast.error("Unauthorized: Credentials rejected by security protocol.");
       }
     } catch (err: any) {
       console.error(err);
-      try {
-        await addDoc(collection(db, "admin_login_logs"), {
-          email: "Auth_Error",
-          success: false,
-          method: "GOOGLE_LOGIN",
-          errorMessage: err.message || "Authentication handshake failed.",
-          createdAt: serverTimestamp()
-        });
-      } catch (logErr) {
-        console.error("Failed to log admin login", logErr);
-      }
       const msg = err?.code === 'auth/operation-not-allowed'
         ? "Google sign-in is not enabled in Firebase. Enable it in your Firebase console."
         : err?.code === 'auth/popup-closed-by-user'

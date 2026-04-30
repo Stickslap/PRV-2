@@ -114,15 +114,6 @@ service cloud.firestore {
         && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
-    function isValidAdminLoginLog(data) {
-      return data.keys().hasAll(['email', 'success', 'createdAt'])
-        && data.email is string && data.email.size() <= 256
-        && data.success is bool
-        && data.createdAt is timestamp
-        && (!('errorMessage' in data) || (data.errorMessage is string && data.errorMessage.size() <= 500))
-        && (!('method' in data) || (data.method is string && data.method in ["STAFF_LOGIN", "GOOGLE_LOGIN"]));
-    }
-
     // ====== Users ======
     match /users/{userId} {
       allow get: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -358,18 +349,6 @@ service cloud.firestore {
                     );
 
       allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
-    }
-
-    // ====== Admin Login Logs ======
-    match /admin_login_logs/{logId} {
-      allow get, list: if isAdmin();
-      
-      allow create: if isValidId(logId)
-                    && incoming().diff({}).affectedKeys().hasOnly(['email', 'success', 'createdAt', 'errorMessage', 'method'])
-                    && incoming().createdAt == request.time
-                    && isValidAdminLoginLog(incoming());
-                    
-      allow update, delete: if false; // Logs are immutable
     }
   }
 }

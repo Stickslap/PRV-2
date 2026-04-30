@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "Settings": {
+      "title": "Settings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "content", "createdAt"]
+    },
+    "JournalPost": {
+      "title": "Journal Post",
+      "description": "A blog or journal entry",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "createdAt"]
+    },
+    "Thread": {
+      "title": "Message Thread",
+      "description": "A support or contact inquiry thread",
+      "type": "object",
+      "properties": {
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "subject": { "type": "string" },
+        "type": { "type": "string", "enum": ["CHAT", "INQUIRY"] },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["subject", "status", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message within a thread",
+      "type": "object",
+      "properties": {
+        "threadId": { "type": "string" },
+        "content": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "senderName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["threadId", "content", "createdAt"]
+    },
+    "FAQ": {
+      "title": "FAQ",
+      "description": "A frequently asked question",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ANSWERED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["question", "status", "createdAt"]
+    },
+    "OrderProof": {
+      "title": "Order Proof",
+      "description": "An artwork proof for an order",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "feedback": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "imageUrl", "status", "createdAt"]
+    },
+    "Review": {
+      "title": "Product Review",
+      "description": "A customer review for a product",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] }
+      },
+      "required": ["productId", "userId", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": { "schema": "Settings", "description": "Global config and links" },
+    "/journals/{journalId}": { "schema": "JournalPost", "description": "Blog posts" },
+    "/threads/{threadId}": { "schema": "Thread", "description": "Support threads" },
+    "/threads/{threadId}/messages/{messageId}": { "schema": "Message", "description": "Messages in threads" },
+    "/faqs/{faqId}": { "schema": "FAQ", "description": "Support FAQs" },
+    "/orders/{orderId}/proofs/{proofId}": { "schema": "OrderProof", "description": "Associated artwork proofs" },
+    "/reviews/{reviewId}": { "schema": "Review", "description": "Customer product reviews" }
+  }
+}

@@ -51,8 +51,8 @@ app.get("/api/env-dump", (req, res) => {
 
 // BigCommerce Configuration Helper
 const getBCConfig = () => {
-  let storeHash = (process.env.BIGCOMMERCE_STORE_HASH || process.env.VITE_BC_STORE_HASH || "").trim();
-  const accessToken = (process.env.BIGCOMMERCE_ACCESS_TOKEN || process.env.VITE_BC_ACCESS_TOKEN || "").trim();
+  let storeHash = (process.env.BIGCOMMERCE_STORE_HASH || "").trim();
+  const accessToken = (process.env.BIGCOMMERCE_ACCESS_TOKEN || "").trim();
 
   if (!storeHash || !accessToken) return null;
 
