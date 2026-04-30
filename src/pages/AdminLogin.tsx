@@ -29,12 +29,8 @@ export function AdminLogin() {
       
       if (response.data.success) {
         // 2. Try to establish a Firebase session (optional — fails gracefully if Firebase Anonymous Auth is not enabled)
-        try {
-          await signInAnonymouslyWithFirebase();
-        } catch (firebaseErr) {
-          console.warn("Firebase anonymous auth unavailable — using localStorage session only.", firebaseErr);
-        }
-        
+        // Removed signInAnonymouslyWithFirebase() to avoid auth/admin-restricted-operation errors since we rely on localStorage
+
         try {
           await addDoc(collection(db, "admin_login_logs"), {
             email: username,

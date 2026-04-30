@@ -27,11 +27,12 @@ export function AdminJournals() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget as HTMLFormElement);
-    const data = {
-      title: fd.get("title") as string,
-      content: fd.get("content") as string,
-      imageUrl: fd.get("imageUrl") as string,
-    };
+    const title = (fd.get("title") as string).trim();
+    const content = (fd.get("content") as string).trim();
+    const imageUrl = (fd.get("imageUrl") as string).trim();
+    
+    const data: any = { title, content };
+    if (imageUrl) data.imageUrl = imageUrl;
 
     try {
       if (editingId) {
@@ -58,6 +59,7 @@ export function AdminJournals() {
       fetchJournals();
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, "journals");
+      toast.error("Failed to delete journal");
     }
   };
 

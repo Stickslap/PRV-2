@@ -237,7 +237,29 @@ app.get("/api/customer/profile", async (req, res) => {
     const r = await bc.get(`/customers?email:in=${encodeURIComponent(String(email))}`);
     const c = r.data.data?.[0];
     if (!c) return res.status(404).json({ error: "Customer not found" });
-    res.json({ id: c.id, email: c.email, firstName: c.first_name, lastName: c.last_name });
+    res.json({ id: c.id, email: c.email, firstName: c.first_name, lastName: c.last_name, phone: c.phone });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/api/customer/profile", async (req, res) => {
+  const { email, firstName, lastName, phone } = req.body;
+  const bc = getBCClient();
+  if (!bc) return res.status(500).json({ error: "Not configured" });
+  try {
+    const r = await bc.get(`/customers?email:in=${encodeURIComponent(String(email))}`);
+    const c = r.data.data?.[0];
+    if (!c) return res.status(404).json({ error: "Customer not found" });
+    
+    await bc.put("/customers", [{
+      id: c.id,
+      first_name: firstName || c.first_name,
+      last_name: lastName || c.last_name,
+      phone: phone !== undefined ? phone : c.phone
+    }]);
+    
+    res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

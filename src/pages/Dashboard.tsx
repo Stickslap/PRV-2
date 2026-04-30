@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { motion } from "motion/react";
@@ -39,6 +39,27 @@ export function Dashboard() {
   const [myReviews, setMyReviews] = useState<Review[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Support Tab States
+  const [threadOrder, setThreadOrder] = useState("General Inquiry");
+  const [threadType, setThreadType] = useState("General Inquiry");
+  const [threadSubject, setThreadSubject] = useState("");
+  const [threadMessage, setThreadMessage] = useState("");
+  const [sendingThread, setSendingThread] = useState(false);
+
+  // Settings Tab States
+  const [settingsFirstName, setSettingsFirstName] = useState("");
+  const [settingsLastName, setSettingsLastName] = useState("");
+  const [settingsPhone, setSettingsPhone] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setSettingsFirstName(profile.firstName || user?.displayName?.split(' ')[0] || '');
+      setSettingsLastName(profile.lastName || user?.displayName?.split(' ').slice(1).join(' ') || '');
+      setSettingsPhone(profile.phone || '');
+    }
+  }, [profile, user]);
+
   useEffect(() => {
     if (!user) return;
     axios.get(`/api/customer/reviews?email=${encodeURIComponent(user.email || "")}`).then(r => setMyReviews(r.data)).catch(() => {});
@@ -67,8 +88,55 @@ export function Dashboard() {
     } catch { console.error("send failed"); } finally { setSendingOrderMsg(false); }
   };
 
+  const handleCreateThread = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!threadMessage.trim() || !user) return;
+    setSendingThread(true);
+    try {
+      const isOrder = threadOrder.startsWith("Order #");
+      const orderIdMatch = threadOrder.match(/#(\d+)/);
+      const fullMessage = `[${threadType}]\n\n${threadMessage}`;
+      
+      if (isOrder && orderIdMatch) {
+         const oid = orderIdMatch[1];
+         await axios.post(`/api/customer/orders/${oid}/messages`, { email: user.email, message: `${threadSubject}\n\n${fullMessage}` });
+      } else {
+         await axios.post(`/api/contact`, { name: profile?.firstName || user?.email, email: user.email, subject: threadSubject, message: fullMessage });
+      }
+      
+      toast.success("Thread initiated successfully.");
+      setThreadSubject("");
+      setThreadMessage("");
+      const r = await axios.get(`/api/customer/threads?email=${encodeURIComponent(user.email || "")}`);
+      setThreads(Array.isArray(r.data) ? r.data : []);
+    } catch (err) {
+      toast.error("Failed to initiate thread.");
+    } finally {
+      setSendingThread(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSavingProfile(true);
+    try {
+      await axios.put('/api/customer/profile', {
+        email: user.email,
+        firstName: settingsFirstName,
+        lastName: settingsLastName,
+        phone: settingsPhone
+      });
+      toast.success("Profile updated.");
+      setProfile(p => p ? { ...p, firstName: settingsFirstName, lastName: settingsLastName, phone: settingsPhone } : null);
+    } catch (err) {
+      toast.error("Failed to update profile.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   useEffect(() => {
-    if (!user) { navigate("/login"); return; }
+    if (!user) { navigate("/login", { replace: true }); return; }
     Promise.all([
       axios.get(`/api/customer/orders?email=${encodeURIComponent(user.email || "")}`),
       axios.get(`/api/customer/profile?email=${encodeURIComponent(user.email || "")}`)
@@ -404,18 +472,20 @@ export function Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 md:gap-10">
                 <div className="lg:col-span-3 bg-white border border-gray-100 rounded-[32px] p-6 md:p-12">
                   <div className="flex items-center gap-3 mb-8"><Send className="w-5 h-5 text-primary" /><h3 className="text-sm font-headline font-black uppercase tracking-tight">Open New Thread</h3></div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <select className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary appearance-none uppercase">
-                      <option>General Inquiry</option>
-                      {orders.map(o => <option key={o.id}>Order #{o.id}</option>)}
-                    </select>
-                    <select className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary appearance-none uppercase">
-                      <option>General Inquiry</option><option>Artwork Assist</option><option>Logistics Delay</option>
-                    </select>
-                  </div>
-                  <input type="text" placeholder="Thread subject..." className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary uppercase mb-4" />
-                  <textarea rows={4} placeholder="Describe your issue..." className="w-full bg-white border border-gray-100 p-5 rounded-2xl text-xs font-bold outline-none focus:border-primary resize-none uppercase mb-6" />
-                  <button className="w-full bg-primary/40 text-white py-5 rounded-2xl font-headline font-black uppercase tracking-widest text-sm italic hover:bg-primary transition-all">Initiate Thread —</button>
+                  <form onSubmit={handleCreateThread}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <select value={threadOrder} onChange={(e) => setThreadOrder(e.target.value)} className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary appearance-none uppercase">
+                        <option>General Inquiry</option>
+                        {orders.map(o => <option key={o.id}>Order #{o.id}</option>)}
+                      </select>
+                      <select value={threadType} onChange={(e) => setThreadType(e.target.value)} className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary appearance-none uppercase">
+                        <option>General Inquiry</option><option>Artwork Assist</option><option>Logistics Delay</option>
+                      </select>
+                    </div>
+                    <input type="text" value={threadSubject} onChange={(e) => setThreadSubject(e.target.value)} required placeholder="Thread subject..." className="w-full bg-white border border-gray-100 p-4 rounded-2xl text-xs font-bold outline-none focus:border-primary uppercase mb-4" />
+                    <textarea rows={4} value={threadMessage} onChange={(e) => setThreadMessage(e.target.value)} required placeholder="Describe your issue..." className="w-full bg-white border border-gray-100 p-5 rounded-2xl text-xs font-bold outline-none focus:border-primary resize-none uppercase mb-6" />
+                    <button type="submit" disabled={sendingThread} className="w-full bg-primary/40 text-white py-5 rounded-2xl font-headline font-black uppercase tracking-widest text-sm italic hover:bg-primary transition-all disabled:opacity-50">{sendingThread ? "Initiating..." : "Initiate Thread —"}</button>
+                  </form>
                 </div>
                 <div className="lg:col-span-2 bg-[#0A0A0E] rounded-[32px] p-6 md:p-12 text-white">
                   <div className="flex items-center gap-3 mb-8"><Clock className="w-5 h-5 text-gray-500" /><h3 className="text-xs font-headline font-black uppercase tracking-widest">Active Threads</h3></div>
@@ -452,23 +522,25 @@ export function Dashboard() {
                     <div><h3 className="text-lg font-headline font-black uppercase tracking-tight italic">Profile Identity</h3></div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {[
-                      { label: 'First Name', val: profile?.firstName || user?.displayName?.split(' ')[0] || '' },
-                      { label: 'Last Name', val: profile?.lastName || user?.displayName?.split(' ').slice(1).join(' ') || '' },
-                      { label: 'Phone', val: profile?.phone || '' },
-                    ].map(f => (
-                      <div key={f.label}>
-                        <label className="text-[11px] font-black uppercase text-gray-900 tracking-widest block mb-3">{f.label}</label>
-                        <input defaultValue={f.val} className="w-full bg-[#F9F9F9] border border-gray-100 p-5 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all" />
-                      </div>
-                    ))}
+                    <div>
+                      <label className="text-[11px] font-black uppercase text-gray-900 tracking-widest block mb-3">First Name</label>
+                      <input value={settingsFirstName} onChange={e => setSettingsFirstName(e.target.value)} className="w-full bg-[#F9F9F9] border border-gray-100 p-5 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-black uppercase text-gray-900 tracking-widest block mb-3">Last Name</label>
+                      <input value={settingsLastName} onChange={e => setSettingsLastName(e.target.value)} className="w-full bg-[#F9F9F9] border border-gray-100 p-5 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-black uppercase text-gray-900 tracking-widest block mb-3">Phone</label>
+                      <input value={settingsPhone} onChange={e => setSettingsPhone(e.target.value)} className="w-full bg-[#F9F9F9] border border-gray-100 p-5 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all" />
+                    </div>
                     <div>
                       <label className="text-[11px] font-black uppercase text-gray-900 tracking-widest block mb-3">Email</label>
                       <input defaultValue={profile?.email || user?.email || ''} disabled className="w-full bg-transparent border-2 border-dotted border-gray-200 p-5 rounded-2xl text-sm font-bold text-gray-400 outline-none" />
                     </div>
                   </div>
                   <div className="flex gap-4 mt-8 flex-wrap">
-                    <button className="bg-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">Save Profile —</button>
+                    <button onClick={handleSaveProfile} disabled={savingProfile} className="bg-primary text-white px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50">{savingProfile ? "Saving..." : "Save Profile —"}</button>
                     <button onClick={handleLogout} className="bg-white border text-red-500 border-red-100 px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center gap-2">
                       <LogOut className="w-4 h-4" /> Log Out
                     </button>
