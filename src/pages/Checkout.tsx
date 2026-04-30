@@ -6,6 +6,8 @@ import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
 import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
 import { XCircle } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 // Global type for BigCommerce SDK
 declare global {
@@ -32,18 +34,14 @@ export function Checkout() {
 
   useEffect(() => {
     // Fetch global settings for delivery timeframe
-    import("firebase/firestore").then(({ doc, getDoc }) => {
-      import("../lib/firebase").then(({ db }) => {
-        getDoc(doc(db, "settings", "global")).then((snap) => {
-          if (snap.exists() && snap.data().content) {
-            const data = JSON.parse(snap.data().content);
-            if (data.shipping?.timeframe) {
-              setDeliveryTimeframe(data.shipping.timeframe);
-            }
-          }
-        });
-      });
-    });
+    getDoc(doc(db, "settings", "global")).then((snap) => {
+      if (snap.exists() && snap.data().content) {
+        const data = JSON.parse(snap.data().content);
+        if (data.shipping?.timeframe) {
+          setDeliveryTimeframe(data.shipping.timeframe);
+        }
+      }
+    }).catch(() => {}); // non-critical, silently ignore
   }, []);
   const [cardFields, setCardFields] = useState<any>(null);
   const [formData, setFormData] = useState({
