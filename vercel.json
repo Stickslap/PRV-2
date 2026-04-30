@@ -1,5 +1,13 @@
 {
+  "functions": {
+    "api/index.ts": { "maxDuration": 30 },
+    "api/ping.ts": { "maxDuration": 10 }
+  },
   "rewrites": [
+    {
+      "source": "/api/ping",
+      "destination": "/api/ping.ts"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/index.ts"
