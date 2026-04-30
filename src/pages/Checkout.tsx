@@ -4,12 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
+import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
 
-// Global type for Square Web Payments SDK
+// Global type for BigCommerce SDK
 declare global {
   interface Window {
     checkoutLoader: any;
-    Square: any;
   }
 }
 
@@ -18,9 +18,6 @@ export function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
-  const squareCardRef = useRef<any>(null);
-  const cardContainerRef = useRef<HTMLDivElement>(null);
-  const [squareReady, setSquareReady] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -118,40 +115,6 @@ export function Checkout() {
     initBC();
   }, [cart]);
 
-  // Initialize Square Web Payments SDK (square.js loaded via index.html)
-  useEffect(() => {
-    const appId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
-    const locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
-    if (!appId || !locationId || !window.Square) return;
-
-    const initSquare = async () => {
-      try {
-        const payments = window.Square.payments(appId, locationId);
-        const card = await payments.card({
-          style: {
-            input: { fontSize: '14px', fontFamily: 'Inter, sans-serif', color: '#111827' },
-            'input::placeholder': { color: '#9ca3af' },
-          },
-        });
-
-        if (cardContainerRef.current) {
-          await card.attach(cardContainerRef.current);
-          squareCardRef.current = card;
-          setSquareReady(true);
-        }
-      } catch (err) {
-        console.error('Square SDK init failed:', err);
-      }
-    };
-
-    initSquare();
-
-    return () => {
-      squareCardRef.current?.destroy?.();
-      squareCardRef.current = null;
-      setSquareReady(false);
-    };
-  }, []);
 
   const selectedShipping = shippingOptions.find(o => o.id === selectedShippingId);
   const shippingCost = selectedShipping ? Number(selectedShipping.cost) : 0;
@@ -516,49 +479,44 @@ export function Checkout() {
                   />
                 </div>
 
-                {/* Square Card Fields — mounted directly, no wrapper iframes */}
+                {/* Square Card Fields */}
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-black mb-3">
                     Card Details <span className="text-red-500">*</span>
                   </p>
-
                   {import.meta.env.VITE_SQUARE_APPLICATION_ID ? (
-                    <>
-                      {/* Square mounts card fields (number, expiry, CVV) into this div */}
-                      <div
-                        ref={cardContainerRef}
-                        id="sq-card-container"
-                        className="border border-gray-200 rounded-md bg-white px-4 py-3 min-h-[54px]"
-                      />
-
-                      {/* Our button — completely outside Square's iframe, full style control */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!squareCardRef.current || isProcessing) return;
-                          try {
-                            const result = await squareCardRef.current.tokenize();
-                            if (result.status === 'OK') {
-                              await handleSquareTokenization(result);
-                            } else {
-                              const msg = result.errors?.map((e: any) => e.message).join(', ') || 'Card details invalid.';
-                              toast.error(msg);
-                            }
-                          } catch {
-                            toast.error('Could not process card. Please try again.');
-                          }
+                    <PaymentForm
+                      applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
+                      locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
+                      cardTokenizeResponseReceived={handleSquareTokenization}
+                    >
+                      <CreditCard
+                        buttonProps={{
+                          isLoading: isProcessing,
+                          css: {
+                            width: '100%',
+                            backgroundColor: isAddressComplete ? '#000000' : '#9ca3af',
+                            color: '#ffffff',
+                            padding: '18px 0',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: '900',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.12em',
+                            border: 'none',
+                            cursor: isAddressComplete ? 'pointer' : 'not-allowed',
+                            marginTop: '1.5rem',
+                            transition: 'all 0.2s ease',
+                          },
                         }}
-                        disabled={!isAddressComplete || isProcessing || !squareReady}
-                        title={!isAddressComplete ? 'Complete your shipping address to place order' : undefined}
-                        className="w-full bg-black hover:bg-gray-900 text-white py-5 rounded-md text-sm font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-400 mt-6 cursor-pointer"
                       >
                         {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
-                      </button>
-                    </>
+                      </CreditCard>
+                    </PaymentForm>
                   ) : (
                     <div className="p-5 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-xs font-bold space-y-2">
                       <p>⚠️ Square credentials not configured.</p>
-                      <p className="opacity-70 text-[10px]">Add <code>VITE_SQUARE_APPLICATION_ID</code> and <code>VITE_SQUARE_LOCATION_ID</code> to your environment variables.</p>
+                      <p className="opacity-70 text-[10px]">Add <code>VITE_SQUARE_APPLICATION_ID</code> and <code>VITE_SQUARE_LOCATION_ID</code> to your environment variables to enable card payments.</p>
                     </div>
                   )}
                 </div>
