@@ -559,8 +559,39 @@ app.post("/api/checkout/process", async (req, res) => {
     const orderId = orderRes.data.id;
     const total = parseFloat(orderRes.data.total_inc_tax || 0);
 
-    // Process Square payment if nonce provided
-    if (nonce && payment_method !== 'link') {
+    // ---- PAYMENT LINK (Square hosted checkout) ----
+    if (payment_method === 'link') {
+      try {
+        const { SquareClient, SquareEnvironment } = await import("square");
+        const token = process.env.SQUARE_ACCESS_TOKEN;
+        const locationId = process.env.VITE_SQUARE_LOCATION_ID;
+        if (!token) return res.status(500).json({ success: false, error: "Square not configured" });
+        const sq = new SquareClient({
+          environment: token.startsWith("EAAA") ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+          token
+        });
+        const sqRes = await sq.checkout.paymentLinks.create({
+          idempotencyKey: `sq-link-${orderId}-${Date.now()}`,
+          quickPay: {
+            locationId: locationId || "",
+            name: `Print Society Co. Order #${orderId}`,
+            priceMoney: { amount: BigInt(Math.round(total * 100)), currency: "USD" }
+          },
+          checkoutOptions: {
+            acceptedPaymentMethods: { cashAppPay: true, applePay: true, googlePay: true }
+          }
+        });
+        await axios.put(`${v2}/orders/${orderId}`, { status_id: 11 }, { headers: h });
+        return res.json({ success: true, orderId, total, paymentUrl: sqRes.paymentLink?.url });
+      } catch (sqErr: any) {
+        const sqDetail = sqErr?.body ? JSON.stringify(sqErr.body) : sqErr?.errors ? JSON.stringify(sqErr.errors) : sqErr.message;
+        console.error("[checkout/process/link] Square error:", sqDetail);
+        return res.status(422).json({ success: false, orderId, error: "Failed to generate payment link", squareError: sqDetail });
+      }
+    }
+
+    // ---- DIRECT CARD PAYMENT (Square nonce) ----
+    if (nonce) {
       try {
         const { SquareClient, SquareEnvironment } = await import("square");
         const token = process.env.SQUARE_ACCESS_TOKEN;
@@ -581,7 +612,6 @@ app.post("/api/checkout/process", async (req, res) => {
       } catch (sqErr: any) {
         const sqDetail = sqErr?.body ? JSON.stringify(sqErr.body) : sqErr?.errors ? JSON.stringify(sqErr.errors) : sqErr.message;
         console.error("[checkout/process] Square error detail:", sqDetail);
-        // Payment failed — tell the client why
         return res.status(422).json({ success: false, orderId, error: "Payment failed", squareError: sqDetail });
       }
     }
