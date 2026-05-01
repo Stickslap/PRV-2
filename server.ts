@@ -32,7 +32,10 @@ async function getSquareClient(): Promise<any> {
 
 const app = express();
 export default app;
-const PORT = 3000;
+const args = process.argv.slice(2);
+const portIndex = args.indexOf("--port");
+const argPort = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : null;
+const PORT = argPort || parseInt(process.env.PORT || "3000", 10);
 
 app.use(cors());
 app.use(express.json());

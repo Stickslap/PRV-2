@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
-import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
+import { PaymentForm, CreditCard, CashAppPay, GooglePay, Afterpay } from 'react-square-web-payments-sdk';
 import { XCircle } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -26,7 +26,6 @@ export function Checkout() {
   const [profile, setProfile] = useState<any>(null);
   const [shippingOptions, setShippingOptions] = useState<any[]>([]);
   const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'sdk' | 'link'>('sdk');
   const [isFetchingShipping, setIsFetchingShipping] = useState(false);
   const [checkoutService, setCheckoutService] = useState<any>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -227,66 +226,6 @@ export function Checkout() {
     }
   };
 
-  const handlePaymentLinkSubmit = async () => {
-    if (formData.state === 'State') {
-      toast.error('Please select a state before completing your order.');
-      return;
-    }
-    if (!formData.email || !formData.firstName || !formData.lastName || !formData.address || !formData.city || !formData.zip) {
-      toast.error('Please fill in all required fields.');
-      return;
-    }
-
-    setIsProcessing(true);
-    
-    // Aggregate artwork notes
-    const artworkNotes = cart
-      .filter(item => item.artworkNotes)
-      .map(item => `${item.name}: ${item.artworkNotes}`)
-      .join('\n');
-
-    try {
-      const response = await axios.post('/api/checkout/process', {
-        payment_method: 'link',
-        cart,
-        email: formData.email,
-        customer_message: artworkNotes || "Custom Checkout Order",
-        shipping_address: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          street_1: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-          phone: formData.phone,
-          country_iso2: 'US',
-        },
-        shipping_id: selectedShippingId,
-      });
-
-      if (response.data?.success && response.data?.paymentUrl) {
-        toast.success('Redirecting to secure payment...');
-        
-        // Save order summary for success page
-        const orderSummaryCache = {
-          items: cart,
-          address: formData,
-          shippingMethod: shippingOptions.find(opt => opt.id === selectedShippingId),
-          deliveryTimeframe: deliveryTimeframe
-        };
-        localStorage.setItem('recentOrderSummary', JSON.stringify(orderSummaryCache));
-        
-        window.location.href = response.data.paymentUrl;
-      } else {
-        toast.error(response.data?.error || 'Payment failed. Please try again.');
-        setIsProcessing(false);
-      }
-    } catch (error: any) {
-      console.error('Checkout Error:', error);
-      toast.error(error.response?.data?.error || error.response?.data?.details || 'Failed to initialize payment.');
-      setIsProcessing(false);
-    }
-  };
 
   const preventDefaultSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -589,99 +528,79 @@ export function Checkout() {
                   </div>
                 </div>
 
-                {/* Checkout Integration Toggle */}
-                <div className="mb-8">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-black mb-3">
-                    Payment Method <span className="text-red-500">*</span>
-                  </p>
-                  <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('sdk')}
-                      className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-md transition-colors ${paymentMethod === 'sdk' ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}
-                    >
-                      Credit Card
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('link')}
-                      className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-md transition-colors ${paymentMethod === 'link' ? 'bg-white shadow-sm text-black' : 'text-gray-500 hover:text-black'}`}
-                    >
-                      Cash App or Afterpay
-                    </button>
-                  </div>
-                </div>
-
                 {/* Cardholder Name */}
-                {paymentMethod === 'sdk' && (
-                  <div className="mb-5">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-black mb-2">
-                      Cardholder Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.cardholderName}
-                      onChange={(e) => updateField('cardholderName', e.target.value)}
-                      placeholder="FULL NAME ON CARD"
-                      className="w-full bg-white border border-gray-200 rounded-md px-4 py-3.5 text-[10px] font-black tracking-widest uppercase focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-gray-300"
-                    />
-                  </div>
-                )}
+                <div className="mb-5">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-black mb-2">
+                    Cardholder Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cardholderName}
+                    onChange={(e) => updateField('cardholderName', e.target.value)}
+                    placeholder="FULL NAME ON CARD"
+                    className="w-full bg-white border border-gray-200 rounded-md px-4 py-3.5 text-[10px] font-black tracking-widest uppercase focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-gray-300"
+                  />
+                </div>
 
                 {/* Square Card Fields */}
                 <div>
-                  {paymentMethod === 'sdk' ? (
-                    <>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-black mb-3">
-                        Card Details <span className="text-red-500">*</span>
-                      </p>
-                      {import.meta.env.VITE_SQUARE_APPLICATION_ID ? (
-                        <div id="sq-form-scope">
-                        <PaymentForm
-                          applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
-                          locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
-                          cardTokenizeResponseReceived={handleSquareTokenization}
-                        >
-                          <CreditCard
-                            buttonProps={{
-                              isLoading: isProcessing,
-                              css: {
-                                width: '100%',
-                                backgroundColor: isAddressComplete ? '#000000' : '#9ca3af',
-                                color: '#ffffff',
-                                padding: '18px 0',
-                                borderRadius: '6px',
-                                fontSize: '13px',
-                                fontWeight: '900',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.12em',
-                                border: 'none',
-                                cursor: isAddressComplete ? 'pointer' : 'not-allowed',
-                                marginTop: '1.5rem',
-                                transition: 'all 0.2s ease',
-                              },
-                            }}
-                          >
-                            {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
-                          </CreditCard>
-                        </PaymentForm>
-                        </div>
-                      ) : (
-                        <div className="p-5 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-xs font-bold space-y-2">
-                          <p>⚠️ Square credentials not configured.</p>
-                          <p className="opacity-70 text-[10px]">Add <code>VITE_SQUARE_APPLICATION_ID</code> and <code>VITE_SQUARE_LOCATION_ID</code> to your environment variables to enable card payments.</p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div>
-                      <button
-                        onClick={handlePaymentLinkSubmit}
-                        disabled={!isAddressComplete || isProcessing}
-                        className="w-full py-5 rounded-md text-[13px] font-black uppercase tracking-[0.12em] transition-all bg-black text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  <p className="text-[10px] font-black uppercase tracking-widest text-black mb-3">
+                    Card Details <span className="text-red-500">*</span>
+                  </p>
+                  {import.meta.env.VITE_SQUARE_APPLICATION_ID ? (
+                    <div id="sq-form-scope">
+                    <PaymentForm
+                      applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
+                      locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
+                      cardTokenizeResponseReceived={handleSquareTokenization}
+                      createPaymentRequest={() => ({
+                        countryCode: 'US',
+                        currencyCode: 'USD',
+                        total: {
+                          amount: (total || 10).toFixed(2),
+                          label: 'Total',
+                        },
+                      })}
+                    >
+                      <CreditCard
+                        buttonProps={{
+                          isLoading: isProcessing,
+                          css: {
+                            width: '100%',
+                            backgroundColor: isAddressComplete ? '#000000' : '#9ca3af',
+                            color: '#ffffff',
+                            padding: '18px 0',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: '900',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.12em',
+                            border: 'none',
+                            cursor: isAddressComplete ? 'pointer' : 'not-allowed',
+                            marginTop: '1.5rem',
+                            transition: 'all 0.2s ease',
+                          },
+                        }}
                       >
-                        {isProcessing ? 'PROCESSING…' : `CONTINUE TO SECURE PAYMENT — $${(total || 10).toFixed(2)}`}
-                      </button>
+                        {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
+                      </CreditCard>
+
+                      <div className="mt-6 flex flex-col gap-3">
+                        <div className="flex items-center gap-4 py-2">
+                          <div className="flex-1 h-px bg-gray-200"></div>
+                          <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Or pay with</span>
+                          <div className="flex-1 h-px bg-gray-200"></div>
+                        </div>
+                        <GooglePay />
+                        <CashAppPay redirectURL={window.location.origin + '/checkout'} shape="semiround" width="full" />
+                        <Afterpay />
+                      </div>
+                    </PaymentForm>
+                    </div>
+                  ) : (
+                    <div className="p-5 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-xs font-bold space-y-2">
+                      <p>⚠️ Square credentials not configured.</p>
+                      <p className="opacity-70 text-[10px]">Add <code>VITE_SQUARE_APPLICATION_ID</code> and <code>VITE_SQUARE_LOCATION_ID</code> to your environment variables to enable card payments.</p>
                     </div>
                   )}
                 </div>
