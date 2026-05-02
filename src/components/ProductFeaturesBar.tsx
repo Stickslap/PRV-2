@@ -21,14 +21,12 @@ const ICON_MAP: Record<string, any> = {
 };
 
 export function ProductFeaturesBar({ productId, features: propFeatures }: ProductFeaturesBarProps) {
-  // Try to load from localStorage if not provided as props
-  const savedFeatures = localStorage.getItem(`product_features_${productId}`);
-  const features = propFeatures || (savedFeatures ? JSON.parse(savedFeatures) : [
+  const features = propFeatures || [
     { id: '1', label: 'MADE IN THE U.S.A', icon: 'flag' },
     { id: '2', label: 'CAST VINYL', icon: 'maximize' },
     { id: '3', label: 'BRIGHTEST COLOR', icon: 'flame' },
     { id: '4', label: 'FLO™ TECHNOLOGY', icon: 'zap' },
-  ]);
+  ];
 
   if (features.length === 0) return null;
 

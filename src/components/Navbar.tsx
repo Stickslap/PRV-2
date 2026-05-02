@@ -279,7 +279,7 @@ export function Navbar() {
                             <Link to={`/product/${p.id}`} key={p.id} className="group block">
                               <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden mb-3 border border-transparent group-hover:border-primary/20 transition-all">
                                 {p.primary_image && (
-                                  <img src={p.primary_image.url_standard} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                  <img src={p.primary_image.url_zoom || p.primary_image.url_standard} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                                 )}
                               </div>
                               <div className="space-y-0.5">

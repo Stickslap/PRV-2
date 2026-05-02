@@ -4,10 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
-import { PaymentForm, CreditCard, CashAppPay, GooglePay, Afterpay } from 'react-square-web-payments-sdk';
-import { XCircle } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
 
 // Global type for BigCommerce SDK
 declare global {
@@ -28,20 +25,6 @@ export function Checkout() {
   const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
   const [isFetchingShipping, setIsFetchingShipping] = useState(false);
   const [checkoutService, setCheckoutService] = useState<any>(null);
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [deliveryTimeframe, setDeliveryTimeframe] = useState<string>("3-5 Business Days");
-
-  useEffect(() => {
-    // Fetch global settings for delivery timeframe
-    getDoc(doc(db, "settings", "global")).then((snap) => {
-      if (snap.exists() && snap.data().content) {
-        const data = JSON.parse(snap.data().content);
-        if (data.shipping?.timeframe) {
-          setDeliveryTimeframe(data.shipping.timeframe);
-        }
-      }
-    }).catch(() => {}); // non-critical, silently ignore
-  }, []);
   const [cardFields, setCardFields] = useState<any>(null);
   const [formData, setFormData] = useState({
     email: '',
@@ -148,8 +131,6 @@ export function Checkout() {
     formData.zip.length >= 5;
 
   const handleSquareTokenization = async (token: any) => {
-    console.log('[Checkout] Square tokenization response:', JSON.stringify(token));
-    
     if (formData.state === 'State') {
       toast.error('Please select a state before completing your order.');
       return;
@@ -158,35 +139,17 @@ export function Checkout() {
       toast.error('Please fill in all required fields.');
       return;
     }
-    
-    // Handle tokenization errors with detail
-    if (token?.status === 'ERROR' || token?.errors?.length > 0) {
-      const errMsgs = token.errors?.map((e: any) => e.message).join(', ') || 'Unknown tokenization error';
-      console.error('[Checkout] Square tokenization errors:', token.errors);
-      toast.error(`Card error: ${errMsgs}`);
-      return;
-    }
-    
     if (!token?.token) {
-      console.error('[Checkout] No token received from Square:', token);
-      toast.error('Card tokenisation failed — no token received. Please re-enter card details.');
+      toast.error('Card tokenisation failed. Please try again.');
       return;
     }
 
     setIsProcessing(true);
-    
-    // Aggregate artwork notes
-    const artworkNotes = cart
-      .filter(item => item.artworkNotes)
-      .map(item => `${item.name}: ${item.artworkNotes}`)
-      .join('\n');
-
     try {
       const response = await axios.post('/api/checkout/process', {
         cart,
         nonce: token.token,
         email: formData.email,
-        customer_message: artworkNotes || "Custom Checkout Order",
         shipping_address: {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -202,30 +165,17 @@ export function Checkout() {
 
       if (response.data?.success) {
         toast.success('Order placed successfully!');
-        
-        // Save order summary for success page
-        const orderSummaryCache = {
-          items: cart,
-          address: formData,
-          shippingMethod: shippingOptions.find(opt => opt.id === selectedShippingId),
-          deliveryTimeframe: deliveryTimeframe
-        };
-        localStorage.setItem('recentOrderSummary', JSON.stringify(orderSummaryCache));
-        
         navigate(`/order-success?id=${response.data.orderId}`);
       } else {
-        toast.error(response.data?.error || response.data?.squareError || 'Payment failed. Please try again.');
+        toast.error(response.data?.error || 'Payment failed. Please try again.');
         setIsProcessing(false);
       }
     } catch (error: any) {
       console.error('Checkout Error:', error);
-      const errData = error.response?.data;
-      const msg = errData?.squareError || errData?.error || errData?.details || 'Failed to process payment.';
-      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      toast.error(error.response?.data?.error || error.response?.data?.details || 'Failed to process payment.');
       setIsProcessing(false);
     }
   };
-
 
   const preventDefaultSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -492,19 +442,6 @@ export function Checkout() {
                     </div>
                   )}
                 </div>
-                
-                {deliveryTimeframe && selectedShippingId && (
-                  <div className="mt-8 p-6 bg-emerald-50/50 border border-emerald-100 rounded-lg flex items-start gap-4 shadow-sm">
-                     <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                       <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                     </div>
-                     <div>
-                       <h4 className="text-[10px] font-black uppercase text-emerald-800 tracking-widest mb-1">Estimated Delivery timeframe</h4>
-                       <p className="text-xl font-headline font-black italic tracking-tighter text-emerald-600">{deliveryTimeframe}</p>
-                       <p className="text-[9px] text-emerald-600/70 font-bold uppercase mt-1">Based on global logistics protocol</p>
-                     </div>
-                  </div>
-                )}
               </section>
 
               {/* PAYMENT METHOD SECTION & SUBMIT */}
@@ -553,14 +490,6 @@ export function Checkout() {
                       applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
                       locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
                       cardTokenizeResponseReceived={handleSquareTokenization}
-                      createPaymentRequest={() => ({
-                        countryCode: 'US',
-                        currencyCode: 'USD',
-                        total: {
-                          amount: (total || 10).toFixed(2),
-                          label: 'Total',
-                        },
-                      })}
                     >
                       <CreditCard
                         buttonProps={{
@@ -584,17 +513,6 @@ export function Checkout() {
                       >
                         {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
                       </CreditCard>
-
-                      <div className="mt-6 flex flex-col gap-3">
-                        <div className="flex items-center gap-4 py-2">
-                          <div className="flex-1 h-px bg-gray-200"></div>
-                          <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Or pay with</span>
-                          <div className="flex-1 h-px bg-gray-200"></div>
-                        </div>
-                        <GooglePay />
-                        <CashAppPay redirectURL={window.location.origin + '/checkout'} shape="semiround" width="full" />
-                        <Afterpay />
-                      </div>
                     </PaymentForm>
                     </div>
                   ) : (
@@ -680,17 +598,6 @@ export function Checkout() {
                         {optionsString}
                       </p>
                     )}
-                    {item.artworkDataUrl && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <img 
-                          src={item.artworkDataUrl} 
-                          alt="Artwork" 
-                          className="w-6 h-6 rounded border border-gray-200 object-cover cursor-pointer hover:border-primary transition-colors" 
-                          onClick={() => setLightboxImage(item.artworkDataUrl!)}
-                        />
-                        <span className="text-[8px] font-black uppercase text-primary tracking-widest">Artwork Attached</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -761,24 +668,6 @@ export function Checkout() {
 
         </div>
       </div>
-
-      {lightboxImage && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-pointer"
-          onClick={() => setLightboxImage(null)}
-        >
-          <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center">
-            <button 
-              onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest z-[60]"
-            >
-              <XCircle className="w-5 h-5" /> CLOSE ENLARGEMENT
-            </button>
-            <img src={lightboxImage} alt="Enlarged Artwork" className="w-auto h-auto max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

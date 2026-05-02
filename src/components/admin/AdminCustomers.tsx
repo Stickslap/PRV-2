@@ -6,7 +6,6 @@ export function AdminCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchCustomers();
@@ -24,18 +23,6 @@ export function AdminCustomers() {
     }
   };
 
-  const filteredCustomers = customers.filter(c => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const fullName = `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase();
-    return (
-      (c.id && c.id.toString().includes(q)) ||
-      fullName.includes(q) ||
-      (c.email && c.email.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.toLowerCase().includes(q))
-    );
-  });
-
   if (loading) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm text-center">
@@ -52,15 +39,13 @@ export function AdminCustomers() {
             <h2 className="font-headline font-black italic uppercase tracking-tight text-lg flex items-center gap-2">
               <Users className="w-5 h-5 text-blue-500" /> Member Registry
             </h2>
-            <span className="text-[10px] font-bold bg-blue-50 text-blue-500 px-2 py-0.5 rounded uppercase">{filteredCustomers.length} Entries</span>
+            <span className="text-[10px] font-bold bg-blue-50 text-blue-500 px-2 py-0.5 rounded uppercase">{customers.length} Entries</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="text" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="SEARCH MEMBERS..." 
                 className="bg-gray-50 border border-gray-200 pl-10 pr-4 py-2 rounded-xl text-[10px] font-bold tracking-widest outline-none focus:border-primary transition-all w-64"
               />
@@ -80,7 +65,7 @@ export function AdminCustomers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredCustomers.map((c, idx) => (
+              {customers.map((c, idx) => (
                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
                   <td className="py-4 px-6 text-xs font-bold text-gray-400">BC-{c.id}</td>
                   <td className="py-4 px-6">
@@ -106,10 +91,10 @@ export function AdminCustomers() {
                   </td>
                 </tr>
               ))}
-              {filteredCustomers.length === 0 && (
+              {customers.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    {searchQuery ? "No matching members found." : "No customers found in BigCommerce."}
+                    No customers found in BigCommerce.
                   </td>
                 </tr>
               )}

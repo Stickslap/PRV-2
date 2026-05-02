@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../../lib/firebase";
+import axios from "axios";
 import toast from "react-hot-toast";
 
 export function AdminJournals() {
@@ -11,12 +10,12 @@ export function AdminJournals() {
   const fetchJournals = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(collection(db, "journals"));
-      const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      fetched.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      const res = await axios.get("/api/journals");
+      const fetched = Array.isArray(res.data) ? res.data : [];
       setJournals(fetched);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, "journals");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to load journals from BigCommerce");
     } finally {
       setLoading(false);
     }
@@ -27,38 +26,37 @@ export function AdminJournals() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget as HTMLFormElement);
-    const title = (fd.get("title") as string).trim();
-    const content = (fd.get("content") as string).trim();
-    const imageUrl = (fd.get("imageUrl") as string).trim();
-    
-    const data: any = { title, content };
-    if (imageUrl) data.imageUrl = imageUrl;
+    const data = {
+      title: fd.get("title") as string,
+      content: fd.get("content") as string,
+      imageUrl: fd.get("imageUrl") as string,
+    };
 
     try {
       if (editingId) {
-        await updateDoc(doc(db, "journals", editingId), { ...data, updatedAt: serverTimestamp() });
+        await axios.put(`/api/admin/journals/${editingId}`, data);
         toast.success("Journal updated");
       } else {
-        await addDoc(collection(db, "journals"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        await axios.post("/api/admin/journals", data);
         toast.success("Journal created");
       }
       setEditingId(null);
       fetchJournals();
       (e.target as HTMLFormElement).reset();
-    } catch (err) {
-      handleFirestoreError(err, editingId ? OperationType.UPDATE : OperationType.CREATE, "journals");
-      toast.error("Failed to save");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to save journal");
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete journal?")) return;
     try {
-      await deleteDoc(doc(db, "journals", id));
+      await axios.delete(`/api/admin/journals/${id}`);
       toast.success("Deleted");
       fetchJournals();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, "journals");
+    } catch (err: any) {
+      console.error(err);
       toast.error("Failed to delete journal");
     }
   };
@@ -74,7 +72,7 @@ export function AdminJournals() {
         <form onSubmit={handleSave} className="space-y-4">
           <input name="title" defaultValue={editingJournal?.title} placeholder="Title" required className="w-full p-4 border border-gray-200 rounded-xl" />
           <input name="imageUrl" defaultValue={editingJournal?.imageUrl} placeholder="Image URL (Optional)" className="w-full p-4 border border-gray-200 rounded-xl" />
-          <textarea name="content" defaultValue={editingJournal?.content} placeholder="Content (Markdown supported)" rows={6} required className="w-full p-4 border border-gray-200 rounded-xl" />
+          <textarea name="content" defaultValue={editingJournal?.content} placeholder="Content (HTML supported)" rows={6} required className="w-full p-4 border border-gray-200 rounded-xl" />
           <div className="flex gap-4">
             <button type="submit" className="bg-primary text-white px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors">
               Save Journal

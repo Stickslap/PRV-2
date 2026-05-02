@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./lib/AuthContext";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
@@ -37,7 +37,6 @@ function AppContent() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/*" element={<Admin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/contact" element={<Contact />} />
@@ -46,7 +45,6 @@ function AppContent() {
           <Route path="/journal" element={<Journal />} />
           <Route path="/support" element={<Support />} />
           <Route path="/order-success" element={<OrderSuccess />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       {!isAuthPage && <Footer />}

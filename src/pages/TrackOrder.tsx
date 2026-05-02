@@ -1,23 +1,43 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
-import { ShieldCheck, Lock } from "lucide-react";
+import { ShieldCheck, Lock, AlertCircle, Package } from "lucide-react";
+import axios from "axios";
 
 export function TrackOrder() {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [statusData, setStatusData] = useState<any | null>(null);
+  const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState("");
 
-  const handleTrack = (e: React.FormEvent) => {
+  const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderNumber.trim()) return;
     
+    // Clean to numeric just to be safe, assuming BC only uses numeric IDs
+    const numericId = orderNumber.replace(/\D/g, '');
+    if (!numericId) {
+      setErrorInfo("Please enter a valid numeric order number.");
+      setStatusData(null);
+      return;
+    }
+
     setLoading(true);
-    // Simulate API lookup
-    setTimeout(() => {
-      setStatus("FOUND");
+    setErrorInfo(null);
+    setStatusData(null);
+
+    try {
+      const response = await axios.get(`/api/public/track/${numericId}`);
+      setStatusData(response.data);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setErrorInfo("Incorrect order number. We could not find an order with this number in our system. Please try again.");
+      } else {
+        setErrorInfo("An error occurred while tracking your order. Please try again later.");
+      }
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -64,15 +84,16 @@ export function TrackOrder() {
           <form onSubmit={handleTrack}>
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
-                  Order Number
+                <label className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">
+                  <span>Order Number</span>
+                  {errorInfo && <span className="text-red-500">Not Found</span>}
                 </label>
                 <input 
                   type="text" 
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
-                  placeholder="e.g. QX-8382" 
-                  className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-base font-bold text-black focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all placeholder:text-gray-400"
+                  placeholder="e.g. 8382" 
+                  className={`w-full bg-white border ${errorInfo ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10' : 'border-gray-200 focus:border-primary focus:ring-primary/10'} rounded-2xl px-5 py-4 text-base font-bold text-black focus:ring-4 outline-none transition-all placeholder:text-gray-400`}
                 />
               </div>
 
@@ -86,16 +107,72 @@ export function TrackOrder() {
             </div>
           </form>
 
-          {status && !loading && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-8 bg-green-50 border border-green-200 rounded-2xl p-6"
-            >
-              <h3 className="text-sm font-black uppercase tracking-widest text-green-800 mb-2">Project Found</h3>
-              <p className="text-green-700 text-sm font-medium">Your order <strong className="font-mono">{orderNumber}</strong> is currently in <strong>PACKING</strong> and is expected to ship in 3-5 business days.</p>
-            </motion.div>
-          )}
+          <AnimatePresence mode="wait">
+            {errorInfo && !loading && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-6 overflow-hidden"
+              >
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex gap-4">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-red-800 mb-1">Lookup Failed</h3>
+                    <p className="text-red-700 text-sm font-medium leading-relaxed">{errorInfo}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {statusData && !loading && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-6 overflow-hidden"
+              >
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-4 border-b border-green-200/50 pb-4">
+                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                      <Package className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-green-800">Project Found</h3>
+                      <p className="text-sm font-bold text-green-900">Order #{statusData.id}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-green-100">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-green-700">Status</span>
+                      <span className="text-sm font-bold text-green-900">{statusData.status}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-green-100">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-green-700">Date</span>
+                      <span className="text-sm font-bold text-green-900">{statusData.date}</span>
+                    </div>
+
+                    {statusData.shipments?.length > 0 && statusData.shipments.map((shipment: any, idx: number) => (
+                      <div key={idx} className="mt-4 bg-white/60 p-4 rounded-xl border border-green-200">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-green-700 mb-2">Shipment {idx + 1}</div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs font-semibold text-green-800">{shipment.shipping_provider}</span>
+                          {shipment.tracking_link ? (
+                            <a href={shipment.tracking_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs font-bold">
+                              {shipment.tracking_number}
+                            </a>
+                          ) : (
+                            <span className="text-xs font-bold text-green-900">{shipment.tracking_number}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="h-px bg-gray-100 w-full my-8"></div>
 

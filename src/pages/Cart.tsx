@@ -77,8 +77,8 @@ export function Cart() {
                   >
                     {/* Item Image */}
                     <div className="w-32 h-32 sm:w-40 sm:h-40 bg-gray-50 rounded-2xl flex-shrink-0 overflow-hidden border border-gray-100 p-2">
-                      {item.primary_image?.url_standard ? (
-                        <img src={item.primary_image.url_standard} className="w-full h-full object-contain" alt={item.name} />
+                      {item.primary_image?.url_zoom || item.primary_image?.url_standard ? (
+                        <img src={item.primary_image.url_zoom || item.primary_image.url_standard} className="w-full h-full object-contain" alt={item.name} />
                       ) : (
                         <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
                           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center px-2">No Image</span>

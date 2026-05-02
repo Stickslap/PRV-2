@@ -8,8 +8,8 @@ import { ProductFeaturesBar } from "../components/ProductFeaturesBar";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, ArrowLeft, Shield, Truck, RotateCcw, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export function ProductDetail() {
   const { id } = useParams();
@@ -21,6 +21,8 @@ export function ProductDetail() {
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [specs, setSpecs] = useState<any>(null);
   const [comparisonData, setComparisonData] = useState<any>(null);
+  const [heroData, setHeroData] = useState<any>(null);
+  const [features, setFeatures] = useState<any>(null);
   const [template, setTemplate] = useState<string>('standard');
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [currentVariant, setCurrentVariant] = useState<Variant | null>(null);
@@ -123,6 +125,15 @@ export function ProductDetail() {
   };
 
   useEffect(() => {
+    if (!loading && window.location.hash === '#product-reviews') {
+      setTimeout(() => {
+        const el = document.getElementById('product-reviews');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
+  }, [loading]);
+
+  useEffect(() => {
     if (product) {
       setCurrentPrice(calculatePrice(product, selectedOptions));
     }
@@ -132,24 +143,41 @@ export function ProductDetail() {
 
   useEffect(() => {
     // Fetch global settings for delivery timeframe
-    getDoc(doc(db, "settings", "global")).then((snap) => {
-      if (snap.exists() && snap.data().content) {
-        const data = JSON.parse(snap.data().content);
-        if (data.shipping?.timeframe) {
-          setDeliveryTimeframe(data.shipping.timeframe);
-        }
-      }
-    }).catch(() => {}); // non-critical
+    import("firebase/firestore").then(({ doc, getDoc }) => {
+      import("../lib/firebase").then(({ db }) => {
+        getDoc(doc(db, "settings", "global")).then((snap) => {
+          if (snap.exists() && snap.data().content) {
+            const data = JSON.parse(snap.data().content);
+            if (data.shipping?.timeframe) {
+              setDeliveryTimeframe(data.shipping.timeframe);
+            }
+          }
+        });
+      });
+    });
 
     if (id) {
-
-      const savedTemplate = localStorage.getItem(`product_template_${id}`);
-      if (savedTemplate) {
-        setTemplate(savedTemplate);
-      }
+      const loadContent = async () => {
+        try {
+          const docRef = doc(db, 'product_content', id);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.template) setTemplate(data.template);
+            if (data.specs) setSpecs(data.specs);
+            if (data.comparison) setComparisonData(data.comparison);
+            if (data.hero) setHeroData(data.hero);
+            if (data.features) setFeatures(data.features);
+          }
+        } catch (e) {
+          console.error("Failed to fetch product content", e);
+        }
+      };
       
+      loadContent();
+
       getProduct(id).then(p => {
-        const mainImg = p?.primary_image?.url_standard || "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?q=80&w=600&auto=format&fit=crop";
+        const mainImg = p?.primary_image?.url_zoom || p?.primary_image?.url_standard || "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?q=80&w=600&auto=format&fit=crop";
         setProduct(p);
         setSelectedImage(mainImg);
         setLoading(false);
@@ -173,11 +201,7 @@ export function ProductDetail() {
           setSelectedOptions(defaultOptions);
         }
 
-        const savedStats = localStorage.getItem(`product_specs_${id}`);
-        if (savedStats) {
-          setSpecs(JSON.parse(savedStats));
-        } else {
-          setSpecs({
+          setSpecs(prev => prev || {
             outdoorLifeLabel: 'OUTDOOR LIFE',
             outdoorLife: '3-5 years',
             thicknessLabel: 'THICKNESS',
@@ -197,10 +221,6 @@ export function ProductDetail() {
             standardWaterBasedLabel: 'STANDARD WATER-BASED',
             standardWaterBased: false
           });
-        }
-
-        const savedComparison = localStorage.getItem(`product_comparison_${id}`);
-        if (savedComparison) setComparisonData(JSON.parse(savedComparison));
       }).catch(err => {
         console.error("Failed to load product", err);
         setError(err.message || "Registry Error // Code 404");
@@ -246,9 +266,6 @@ export function ProductDetail() {
   if (!product) return <div className="pt-40 text-center font-headline font-black uppercase tracking-[0.2em] text-xs">Registry Error // Code 404</div>;
 
   const getCustomField = (name: string) => product?.custom_fields?.find(f => f.name === name)?.value;
-
-  const savedHero = localStorage.getItem(`product_hero_${id}`);
-  const heroData = savedHero ? JSON.parse(savedHero) : null;
 
   const heroVideo = getCustomField('hero_video_url') || heroData?.videoUrl || "https://www.youtube.com/embed/MJ9JaM7tI3w";
   const heroTitle = getCustomField('hero_title') || heroData?.title || "THE PRINT SOCIETY METHOD";
@@ -302,7 +319,7 @@ export function ProductDetail() {
               
               <div className="bg-white border text-center border-gray-200 rounded-3xl overflow-hidden self-start shadow-sm w-full relative">
                 <img 
-                  src={selectedImage || product.primary_image?.url_standard} 
+                  src={selectedImage || product.primary_image?.url_zoom || product.primary_image?.url_standard} 
                   className="w-full aspect-[4/3] object-contain bg-white"
                   alt={product.name}
                 />
@@ -312,10 +329,10 @@ export function ProductDetail() {
                     {product.images.map((img, i) => (
                       <button 
                         key={i} 
-                        onClick={() => setSelectedImage(img.url_standard)}
-                        className={`w-12 h-12 rounded-lg border-2 pointer-events-auto overflow-hidden transition-all ${selectedImage === img.url_standard ? 'border-[#5719D3] shadow-lg scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
+                        onClick={() => setSelectedImage(img.url_zoom || img.url_standard)}
+                        className={`w-12 h-12 rounded-lg border-2 pointer-events-auto overflow-hidden transition-all ${selectedImage === (img.url_zoom || img.url_standard) ? 'border-[#5719D3] shadow-lg scale-110' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
                       >
-                         <img src={img.url_standard} className="w-full h-full object-cover bg-white" alt={`${product.name} ${i}`} />
+                         <img src={img.url_zoom || img.url_standard} className="w-full h-full object-cover bg-white" alt={`${product.name} ${i}`} />
                       </button>
                     ))}
                   </div>
@@ -500,7 +517,7 @@ export function ProductDetail() {
 
           </div>
 
-          <ProductFeaturesBar productId={id || ''} />
+          <ProductFeaturesBar productId={id || ''} features={features} />
 
           {specs && (
             <div className="w-full border border-gray-200 rounded-3xl overflow-hidden shadow-sm bg-white">
@@ -650,7 +667,7 @@ export function ProductDetail() {
               className="aspect-square bg-muted rounded-3xl overflow-hidden border border-border"
             >
               <img 
-                src={selectedImage || product.primary_image?.url_standard} 
+                src={selectedImage || product.primary_image?.url_zoom || product.primary_image?.url_standard} 
                 className="w-full h-full object-cover"
                 alt={product.name}
               />
@@ -659,10 +676,10 @@ export function ProductDetail() {
               {product.images?.map((img, i) => (
                 <div 
                   key={i} 
-                  onClick={() => setSelectedImage(img.url_standard)}
-                  className={`aspect-square bg-muted rounded-xl border ${selectedImage === img.url_standard ? 'border-primary' : 'border-border'} overflow-hidden cursor-pointer hover:border-primary transition-all`}
+                  onClick={() => setSelectedImage(img.url_zoom || img.url_standard)}
+                  className={`aspect-square bg-muted rounded-xl border ${selectedImage === (img.url_zoom || img.url_standard) ? 'border-primary' : 'border-border'} overflow-hidden cursor-pointer hover:border-primary transition-all`}
                 >
-                  <img src={img.url_standard} className={`w-full h-full object-cover transition-all ${selectedImage === img.url_standard ? 'grayscale-0' : 'grayscale hover:grayscale-0'}`} alt={`${product.name} ${i}`} />
+                  <img src={img.url_zoom || img.url_standard} className={`w-full h-full object-cover transition-all ${selectedImage === (img.url_zoom || img.url_standard) ? 'grayscale-0' : 'grayscale hover:grayscale-0'}`} alt={`${product.name} ${i}`} />
                 </div>
               ))}
             </div>
@@ -773,7 +790,7 @@ export function ProductDetail() {
           </div>
         </div>
 
-        <ProductFeaturesBar productId={id || ''} />
+        <ProductFeaturesBar productId={id || ''} features={features} />
 
         {/* Production Specifications Panel */}
         {specs && (

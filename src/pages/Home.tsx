@@ -130,7 +130,7 @@ export function Home() {
                 <Link to={`/product/${product.id}`}>
                   <div className="relative aspect-[4/5] overflow-hidden bg-muted rounded-xl mb-6 border border-border group-hover:border-primary transition-all duration-500">
                     <img 
-                      src={product.primary_image?.url_standard || "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?q=80&w=600&auto=format&fit=crop"} 
+                      src={product.primary_image?.url_zoom || product.primary_image?.url_standard || "https://images.unsplash.com/photo-1572375992501-4b0892d50c69?q=80&w=600&auto=format&fit=crop"} 
                       className="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105"
                       alt={product.name}
                     />

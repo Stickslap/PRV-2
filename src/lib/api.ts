@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export interface ProductImage {
   url_standard: string;
+  url_zoom?: string;
 }
 
 export interface Variant {

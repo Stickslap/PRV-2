@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Star, MessageSquare, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../lib/AuthContext';
 import { toast } from 'react-hot-toast';
+import axios from 'axios';
 
 interface Review {
   id: string;
   productId: string;
-  userId: string;
+  userId?: string;
   userName: string;
   rating: number;
   comment: string;
-  createdAt: Timestamp;
+  createdAt: string;
   status: string;
 }
 
@@ -30,26 +29,15 @@ export const ProductReviews = ({ productId }: ProductReviewsProps) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Stringify productId to ensure it matches firestore storage if it's a number
-    const pId = String(productId);
-    const q = query(
-      collection(db, 'reviews'),
-      where('productId', '==', pId),
-      where('status', '==', 'APPROVED'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedReviews = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Review[];
-      setReviews(fetchedReviews);
-    }, (error) => {
-      console.error("Error fetching reviews:", error);
-    });
-
-    return () => unsubscribe();
+    const fetchReviews = async () => {
+      try {
+        const res = await axios.get(`/api/products/${productId}/reviews`);
+        setReviews(res.data || []);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      }
+    };
+    if (productId) fetchReviews();
   }, [productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,21 +54,20 @@ export const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'reviews'), {
-        productId: String(productId),
-        userId: user.uid,
+      await axios.post(`/api/products/${productId}/reviews`, {
         userName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+        email: user.email,
         rating,
         comment,
-        status: 'APPROVED',
-        createdAt: serverTimestamp(),
       });
-      toast.success("Review submitted successfully!");
+      
+      toast.success("Review submitted and pending approval!");
       setComment('');
       setRating(5);
       setIsWriting(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'reviews');
+      console.error(error);
+      toast.error("Failed to submit review");
     } finally {
       setIsSubmitting(false);
     }
@@ -203,7 +190,7 @@ export const ProductReviews = ({ productId }: ProductReviewsProps) => {
                     <div>
                       <p className="text-sm font-black italic">{review.userName}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {review.createdAt ? (typeof review.createdAt === 'string' ? new Date(review.createdAt).toLocaleDateString() : (review.createdAt as any).toDate?.()?.toLocaleDateString() || new Date((review.createdAt as any).seconds * 1000).toLocaleDateString()) : ''}
+                        {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
                       </p>
                     </div>
                   </div>

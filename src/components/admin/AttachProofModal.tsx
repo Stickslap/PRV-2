@@ -32,10 +32,7 @@ export function AttachProofModal({ orderId, onClose }: AttachProofModalProps) {
     const [feedback, setFeedback] = useState("");
 
     const handleAttach = async () => {
-    if (!proofUrl.trim()) {
-      toast.error("Please select a file first");
-      return;
-    }
+    if (!proofUrl.trim()) return;
     try {
       await addDoc(collection(db, `orders/${orderId}/proofs`), {
         orderId,
@@ -170,7 +167,6 @@ export function AttachProofModal({ orderId, onClose }: AttachProofModalProps) {
               />
             </div>
             <button 
-              type="button"
               onClick={handleAttach}
               className="w-full bg-black text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-colors"
             >

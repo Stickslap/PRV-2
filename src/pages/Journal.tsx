@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../lib/firebase";
+import axios from "axios";
 import { motion } from "motion/react";
 import { Calendar, ArrowRight } from "lucide-react";
 
@@ -21,15 +20,11 @@ export function Journal() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const q = query(collection(db, "journals"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        const fetchedPosts: JournalPost[] = [];
-        querySnapshot.forEach((doc) => {
-          fetchedPosts.push({ id: doc.id, ...doc.data() } as JournalPost);
-        });
+        const response = await axios.get("/api/journals");
+        const fetchedPosts = Array.isArray(response.data) ? response.data : [];
         setPosts(fetchedPosts);
       } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, "journals");
+        console.error("Failed to load journals", err);
       } finally {
         setLoading(false);
       }
@@ -40,8 +35,12 @@ export function Journal() {
 
   const formatDate = (ts: any) => {
     if (!ts) return "Recently";
-    if (ts.toDate) return ts.toDate().toLocaleDateString();
     return new Date(ts).toLocaleDateString();
+  };
+
+  const stripHtml = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
   };
 
   return (
@@ -91,7 +90,7 @@ export function Journal() {
                   {post.title}
                 </h2>
                 <p className="text-sm text-gray-500 font-medium mb-4 line-clamp-3">
-                  {post.excerpt || post.content}
+                  {post.excerpt || stripHtml(post.content)}
                 </p>
                 <div className="flex items-center gap-2 text-xs font-bold text-black group-hover:text-primary transition-colors uppercase tracking-widest">
                   Read More <ArrowRight className="w-4 h-4" />

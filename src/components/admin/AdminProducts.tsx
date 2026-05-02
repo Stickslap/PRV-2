@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Package, Search, ExternalLink, SlidersHorizontal, ArrowRight, RefreshCcw, Filter, CheckCircle2, XCircle, AlertCircle, Trash2, Loader2, Plus } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useStore } from "../../store/useStore";
+import { db } from "../../lib/firebase";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
 
 interface AdminProduct {
   id: number;
@@ -16,6 +18,7 @@ interface AdminProduct {
   };
   primary_image?: {
     url_standard: string;
+    url_zoom?: string;
   };
   template?: string;
   sku?: string;
@@ -64,10 +67,15 @@ export function AdminProducts() {
       }
 
       if (productsRes.data?.data) {
-        // Initialize mock template selection if not set by DB
+        const contentSnap = await getDocs(collection(db, 'product_content'));
+        const contentMap: Record<number, string> = {};
+        contentSnap.forEach(doc => {
+          contentMap[Number(doc.id)] = doc.data().template || 'standard';
+        });
+
         const mapped = productsRes.data.data.map((p: any) => ({
           ...p,
-          template: localStorage.getItem(`product_template_${p.id}`) || 'standard'
+          template: contentMap[p.id] || 'standard'
         }));
         setProducts(mapped);
         setLastSynced(new Date());
@@ -320,7 +328,7 @@ export function AdminProducts() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
                           {product.primary_image ? (
-                            <img src={product.primary_image.url_standard} alt={product.name} className="w-full h-full object-cover" />
+                            <img src={product.primary_image.url_zoom || product.primary_image.url_standard} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
                             <Package className="w-4 h-4 m-auto text-gray-300 mt-3" />
                           )}
@@ -467,75 +475,98 @@ function TemplateEditorModal({ product, onClose, onSave }: { product: AdminProdu
   const [template, setTemplate] = useState(product.template || 'standard');
   const [activeTab, setActiveTab] = useState<'template'|'details'|'features'|'video'|'comparison'>('template');
   
-  const [features, setFeatures] = useState(() => {
-    const saved = localStorage.getItem(`product_features_${product.id}`);
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: '1', label: 'MADE IN THE U.S.A', icon: 'flag' },
-      { id: '2', label: 'CAST VINYL', icon: 'maximize' },
-      { id: '3', label: 'BRIGHTEST COLOR', icon: 'flame' },
-      { id: '4', label: 'FLO™ TECHNOLOGY', icon: 'zap' },
-    ];
+  const [features, setFeatures] = useState([
+    { id: '1', label: 'MADE IN THE U.S.A', icon: 'flag' },
+    { id: '2', label: 'CAST VINYL', icon: 'maximize' },
+    { id: '3', label: 'BRIGHTEST COLOR', icon: 'flame' },
+    { id: '4', label: 'FLO™ TECHNOLOGY', icon: 'zap' },
+  ]);
+
+  const [comparisonMatrix, setComparisonMatrix] = useState({
+    durabilityLabel: 'Durability',
+    durabilityValue: '3-5 Year Outdoor Limit',
+    compatibilityLabel: 'Compatibility',
+    compatibilityValue: 'Eco-Solvent / UV / Latex',
+    adhesiveLabel: 'Adhesive Logic',
+    adhesiveValue: 'Permanent / Air Egress',
+    materialLabel: 'Material Specs',
+    materialValue: 'Ultra-Calendered PVC'
   });
 
-  const [comparisonMatrix, setComparisonMatrix] = useState(() => {
-    const saved = localStorage.getItem(`product_comparison_${product.id}`);
-    if (saved) return JSON.parse(saved);
-    return {
-      durabilityLabel: 'Durability',
-      durabilityValue: '3-5 Year Outdoor Limit',
-      compatibilityLabel: 'Compatibility',
-      compatibilityValue: 'Eco-Solvent / UV / Latex',
-      adhesiveLabel: 'Adhesive Logic',
-      adhesiveValue: 'Permanent / Air Egress',
-      materialLabel: 'Material Specs',
-      materialValue: 'Ultra-Calendered PVC'
+  const [hero, setHero] = useState({
+    videoUrl: 'https://www.youtube.com/embed/MJ9JaM7tI3w',
+    title: 'THE PRINT SOCIETY METHOD',
+    subtitle: 'PRECISION IN EVERY CUT.',
+    description: "Go behind the scenes of our print shop. From digital proofing to precision die-cutting, see how we craft the world's most durable stickers."
+  });
+
+  const [specs, setSpecs] = useState({
+    outdoorLifeLabel: 'OUTDOOR LIFE',
+    outdoorLife: '3-5 years',
+    thicknessLabel: 'THICKNESS',
+    thickness: 'Easy Peel',
+    pressureSensLabel: 'PRESSURE SENS.',
+    pressureSens: true,
+    airReleaseLabel: 'AIR RELEASE',
+    airRelease: true,
+    ecoSolventLabel: 'ECO-SOLVENT TECHNOLOGY',
+    ecoSolvent: true,
+    hpLatexLabel: 'HP LATEX SERIES',
+    hpLatex: false,
+    trueSolventLabel: 'TRUE SOLVENT INKS',
+    trueSolvent: false,
+    uvLedCureLabel: 'UV-LED CURE',
+    uvLedCure: true,
+    standardWaterBasedLabel: 'STANDARD WATER-BASED',
+    standardWaterBased: false
+  });
+
+  const [loadingContent, setLoadingContent] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const docRef = doc(db, 'product_content', product.id.toString());
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.features) setFeatures(data.features);
+          if (data.comparison) setComparisonMatrix(data.comparison);
+          if (data.hero) setHero(data.hero);
+          if (data.specs) setSpecs(data.specs);
+          if (data.template) setTemplate(data.template);
+        }
+      } catch (err) {
+        console.error("Failed to load product content", err);
+      } finally {
+        setLoadingContent(false);
+      }
     };
-  });
+    fetchContent();
+  }, [product.id]);
 
-  const [hero, setHero] = useState(() => {
-    const saved = localStorage.getItem(`product_hero_${product.id}`);
-    if (saved) return JSON.parse(saved);
-    return {
-      videoUrl: 'https://www.youtube.com/embed/MJ9JaM7tI3w',
-      title: 'THE PRINT SOCIETY METHOD',
-      subtitle: 'PRECISION IN EVERY CUT.',
-      description: "Go behind the scenes of our print shop. From digital proofing to precision die-cutting, see how we craft the world's most durable stickers."
-    };
-  });
-
-  const [specs, setSpecs] = useState(() => {
-    const saved = localStorage.getItem(`product_specs_${product.id}`);
-    if (saved) return JSON.parse(saved);
-    return {
-      outdoorLifeLabel: 'OUTDOOR LIFE',
-      outdoorLife: '3-5 years',
-      thicknessLabel: 'THICKNESS',
-      thickness: 'Easy Peel',
-      pressureSensLabel: 'PRESSURE SENS.',
-      pressureSens: true,
-      airReleaseLabel: 'AIR RELEASE',
-      airRelease: true,
-      ecoSolventLabel: 'ECO-SOLVENT TECHNOLOGY',
-      ecoSolvent: true,
-      hpLatexLabel: 'HP LATEX SERIES',
-      hpLatex: false,
-      trueSolventLabel: 'TRUE SOLVENT INKS',
-      trueSolvent: false,
-      uvLedCureLabel: 'UV-LED CURE',
-      uvLedCure: true,
-      standardWaterBasedLabel: 'STANDARD WATER-BASED',
-      standardWaterBased: false
-    };
-  });
-
-  const handleSave = () => {
-    onSave(product.id, template);
-    localStorage.setItem(`product_specs_${product.id}`, JSON.stringify(specs));
-    localStorage.setItem(`product_hero_${product.id}`, JSON.stringify(hero));
-    localStorage.setItem(`product_features_${product.id}`, JSON.stringify(features));
-    localStorage.setItem(`product_comparison_${product.id}`, JSON.stringify(comparisonMatrix));
-    onClose();
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const docRef = doc(db, 'product_content', product.id.toString());
+      await setDoc(docRef, {
+        features,
+        comparison: comparisonMatrix,
+        hero,
+        specs,
+        template,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      onSave(product.id, template);
+      toast.success('Product content saved');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save product content');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

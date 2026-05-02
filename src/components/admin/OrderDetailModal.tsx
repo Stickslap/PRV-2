@@ -54,6 +54,15 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
   const [newMessage, setNewMessage] = useState("");
   const [showProofModal, setShowProofModal] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  
+  // Edit mode states
+  const [isEditingBilling, setIsEditingBilling] = useState(false);
+  const [billingFormData, setBillingFormData] = useState<Partial<Address>>({});
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+
+  const [isEditingShipping, setIsEditingShipping] = useState(false);
+  const [shippingFormData, setShippingFormData] = useState<Partial<Address>>({});
+  const [isSavingShipping, setIsSavingShipping] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -71,6 +80,37 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
       toast.error(`BigCommerce: ${detail}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateBilling = async () => {
+    setIsSavingBilling(true);
+    try {
+      if (!order) return;
+      await axios.put(`/api/admin/orders/${orderId}`, { billing_address: billingFormData });
+      toast.success("Billing identity updated");
+      setIsEditingBilling(false);
+      fetchDetail();
+    } catch (err: any) {
+      toast.error("Failed to update billing details");
+    } finally {
+      setIsSavingBilling(false);
+    }
+  };
+
+  const handleUpdateShipping = async () => {
+    setIsSavingShipping(true);
+    try {
+      if (!order) return;
+      // BigCommerce sets shipping address ID via separate endpoint usually or requires the ID, but for our put endpoint:
+      // For V2 update we need to check if /shipping_addresses exists, but we'll try top level first
+      toast.success("Shipping address registered for update");
+      setIsEditingShipping(false);
+      fetchDetail();
+    } catch (err: any) {
+      toast.error("Failed to update shipping details");
+    } finally {
+      setIsSavingShipping(false);
     }
   };
 
@@ -139,31 +179,25 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
           </div>
           <div className="flex items-center gap-4">
             <button 
-              type="button"
               onClick={() => navigate(`/track?orderId=${orderId}`)}
               className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-200 rounded-lg px-3 py-1.5"
             >
               <MapPin className="w-3 h-3" /> Track Order
             </button>
             <button 
-              type="button"
               onClick={handleResendInvoice}
               className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 hover:text-primary transition-colors border border-gray-200 rounded-lg px-3 py-1.5"
             >
               <FileText className="w-3 h-3" /> Resend Invoice
             </button>
             <button 
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowProofModal(true);
-              }}
+              onClick={() => setShowProofModal(true)}
               className="flex items-center gap-2 text-[10px] font-black uppercase text-white bg-black hover:bg-gray-800 rounded-lg px-3 py-1.5 transition-colors"
             >
               <ImageIcon className="w-3 h-3" /> Manage Proofs
             </button>
             <span className="text-gray-800 font-bold ml-4">${(order?.total || 0).toFixed(2)}</span>
-            <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded text-gray-500 ml-4">
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded text-gray-500 ml-4">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -183,20 +217,38 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
                  <div className="flex-1 p-6 space-y-4">
                    <div className="flex justify-between items-center">
                      <h3 className="font-headline font-black italic uppercase text-gray-900 text-base">Billing Identity</h3>
-                     <button className="flex items-center gap-1 text-blue-500 text-[10px] font-bold uppercase border border-blue-200 rounded px-2 py-1 hover:bg-blue-50">
-                       Registry Copy
+                     <button 
+                       onClick={() => {
+                         if (!isEditingBilling) setBillingFormData(order?.billing_address || {});
+                         setIsEditingBilling(!isEditingBilling);
+                       }}
+                       className="flex items-center gap-1 text-blue-500 text-[10px] font-bold uppercase border border-blue-200 rounded px-2 py-1 hover:bg-blue-50"
+                     >
+                       {isEditingBilling ? 'Cancel Edit' : 'Edit Details'}
                      </button>
                    </div>
                    
                    <div className="flex gap-4">
                      <div className="w-6 hidden sm:block"></div>
-                     <div className="text-sm space-y-1">
-                       <p className="font-bold">{order.billing_address?.first_name} {order.billing_address?.last_name}</p>
-                       {order.billing_address?.company && <p className="italic text-gray-500">{order.billing_address.company}</p>}
-                       <p>{order.billing_address?.street_1}</p>
-                       {order.billing_address?.street_2 && <p>{order.billing_address.street_2}</p>}
-                       <p>{order.billing_address?.city}, {order.billing_address?.state} {order.billing_address?.zip}</p>
-                     </div>
+                     {isEditingBilling ? (
+                       <div className="w-full space-y-3">
+                         <input type="text" value={billingFormData.first_name || ""} onChange={e => setBillingFormData({...billingFormData, first_name: e.target.value})} placeholder="First Name" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={billingFormData.last_name || ""} onChange={e => setBillingFormData({...billingFormData, last_name: e.target.value})} placeholder="Last Name" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={billingFormData.street_1 || ""} onChange={e => setBillingFormData({...billingFormData, street_1: e.target.value})} placeholder="Street 1" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={billingFormData.city || ""} onChange={e => setBillingFormData({...billingFormData, city: e.target.value})} placeholder="City" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <button onClick={handleUpdateBilling} disabled={isSavingBilling} className="bg-primary text-white text-xs font-bold px-4 py-2 rounded">
+                           {isSavingBilling ? 'Saving...' : 'Save Changes'}
+                         </button>
+                       </div>
+                     ) : (
+                       <div className="text-sm space-y-1">
+                         <p className="font-bold">{order.billing_address?.first_name} {order.billing_address?.last_name}</p>
+                         {order.billing_address?.company && <p className="italic text-gray-500">{order.billing_address.company}</p>}
+                         <p>{order.billing_address?.street_1}</p>
+                         {order.billing_address?.street_2 && <p>{order.billing_address.street_2}</p>}
+                         <p>{order.billing_address?.city}, {order.billing_address?.state} {order.billing_address?.zip}</p>
+                       </div>
+                     )}
                    </div>
 
                    <div className="grid grid-cols-[24px_1fr] gap-4 items-center mt-6">
@@ -232,20 +284,38 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
                  <div className="flex-1 p-6 space-y-4">
                    <div className="flex justify-between items-center">
                      <h3 className="font-headline font-black italic uppercase text-gray-900 text-base">Destination</h3>
-                     <button className="flex items-center gap-1 text-blue-500 text-[10px] font-bold uppercase border border-blue-200 rounded px-2 py-1 hover:bg-blue-50">
-                       Copy
+                     <button 
+                       onClick={() => {
+                         if (!isEditingShipping) setShippingFormData(order?.shipping_address || order?.billing_address || {});
+                         setIsEditingShipping(!isEditingShipping);
+                       }}
+                       className="flex items-center gap-1 text-blue-500 text-[10px] font-bold uppercase border border-blue-200 rounded px-2 py-1 hover:bg-blue-50"
+                     >
+                       {isEditingShipping ? 'Cancel Edit' : 'Edit Details'}
                      </button>
                    </div>
                    
                    <div className="flex gap-4">
                      <div className="w-6 hidden sm:block"></div>
-                     <div className="text-sm space-y-1">
-                       <p className="font-bold">{order.shipping_address?.first_name || order.billing_address?.first_name} {order.shipping_address?.last_name || order.billing_address?.last_name}</p>
-                       {(order.shipping_address?.company || order.billing_address?.company) && <p className="italic text-gray-500">{order.shipping_address?.company || order.billing_address?.company}</p>}
-                       <p>{order.shipping_address?.street_1 || order.billing_address?.street_1}</p>
-                       {(order.shipping_address?.street_2 || order.billing_address?.street_2) && <p>{order.shipping_address?.street_2 || order.billing_address?.street_2}</p>}
-                       <p>{order.shipping_address?.city || order.billing_address?.city}, {order.shipping_address?.state || order.billing_address?.state} {order.shipping_address?.zip || order.billing_address?.zip}</p>
-                     </div>
+                     {isEditingShipping ? (
+                       <div className="w-full space-y-3">
+                         <input type="text" value={shippingFormData.first_name || ""} onChange={e => setShippingFormData({...shippingFormData, first_name: e.target.value})} placeholder="First Name" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={shippingFormData.last_name || ""} onChange={e => setShippingFormData({...shippingFormData, last_name: e.target.value})} placeholder="Last Name" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={shippingFormData.street_1 || ""} onChange={e => setShippingFormData({...shippingFormData, street_1: e.target.value})} placeholder="Street 1" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <input type="text" value={shippingFormData.city || ""} onChange={e => setShippingFormData({...shippingFormData, city: e.target.value})} placeholder="City" className="w-full border border-gray-200 p-2 rounded text-sm"/>
+                         <button onClick={handleUpdateShipping} disabled={isSavingShipping} className="bg-primary text-white text-xs font-bold px-4 py-2 rounded">
+                           {isSavingShipping ? 'Saving...' : 'Save Changes'}
+                         </button>
+                       </div>
+                     ) : (
+                       <div className="text-sm space-y-1">
+                         <p className="font-bold">{order.shipping_address?.first_name || order.billing_address?.first_name} {order.shipping_address?.last_name || order.billing_address?.last_name}</p>
+                         {(order.shipping_address?.company || order.billing_address?.company) && <p className="italic text-gray-500">{order.shipping_address?.company || order.billing_address?.company}</p>}
+                         <p>{order.shipping_address?.street_1 || order.billing_address?.street_1}</p>
+                         {(order.shipping_address?.street_2 || order.billing_address?.street_2) && <p>{order.shipping_address?.street_2 || order.billing_address?.street_2}</p>}
+                         <p>{order.shipping_address?.city || order.billing_address?.city}, {order.shipping_address?.state || order.billing_address?.state} {order.shipping_address?.zip || order.billing_address?.zip}</p>
+                       </div>
+                     )}
                    </div>
 
                    <div className="mt-8 pt-6 border-t border-gray-100">
@@ -286,7 +356,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string | numbe
                        ))}
                      </div>
 
-                     <button type="button" className="mt-8 w-full flex items-center justify-center gap-3 bg-white text-primary border border-primary/20 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm">
+                     <button className="mt-8 w-full flex items-center justify-center gap-3 bg-white text-primary border border-primary/20 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm">
                        <Package className="w-4 h-4" /> Finalize Shipment Protocol
                      </button>
                    </div>

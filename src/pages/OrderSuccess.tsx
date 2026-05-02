@@ -129,7 +129,7 @@ export function OrderSuccess() {
                   {summary.items.map((item: any, idx: number) => (
                     <div key={idx} className="flex gap-4 items-center border-b border-gray-50 pb-4 last:border-0 last:pb-0">
                       {item.primary_image ? (
-                        <img src={item.primary_image.url_standard} className="w-12 h-12 rounded object-cover border border-gray-200" alt={item.name} />
+                        <img src={item.primary_image.url_zoom || item.primary_image.url_standard} className="w-12 h-12 rounded object-cover border border-gray-200" alt={item.name} />
                       ) : <div className="w-12 h-12 rounded bg-gray-100 border border-gray-200" />}
                       <div className="flex-1">
                         <p className="text-xs font-black italic uppercase leading-tight">{item.name}</p>
