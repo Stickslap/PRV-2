@@ -150,23 +150,14 @@ app.get("/api/products", async (req, res) => {
   try {
     console.log("Fetching ALL products from BigCommerce...");
     
-    let allProducts: any[] = [];
-    let page = 1;
-    let hasMore = true;
+       let allProducts: any[] = [];
     
-    while (hasMore && page <= 10) { 
-      console.log(`Fetching page ${page}...`);
-      const response = await bc.get(`/catalog/products?include=images,variants,primary_image,options,modifiers,custom_fields&limit=250&page=${page}&sort=id&direction=desc`);
-      const data = response.data.data || [];
-      allProducts = [...allProducts, ...data];
-      
-      const pagination = response.data.meta?.pagination;
-      if (pagination && pagination.current_page < pagination.total_pages) {
-        page++;
-      } else {
-        hasMore = false;
-      }
-    }
+    // Limit to 1 page of 50 products to prevent Vercel Serverless 10-second timeouts.
+    console.log(`Fetching page 1...`);
+    const response = await bc.get(`/catalog/products?include=images,variants,primary_image,options,modifiers,custom_fields&limit=50&page=1&sort=id&direction=desc`);
+    const data = response.data.data || [];
+    allProducts = [...allProducts, ...data];
+ 
     
     setToCache(cacheKey, allProducts);
     res.json({ data: allProducts });
