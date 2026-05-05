@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../lib/AuthContext';
 import axios from 'axios';
-import { PaymentForm, CreditCard } from 'react-square-web-payments-sdk';
+import { PaymentForm, CreditCard, GooglePay, CashAppPay, Afterpay } from 'react-square-web-payments-sdk';
 
 // Global type for BigCommerce SDK
 declare global {
@@ -490,6 +490,14 @@ export function Checkout() {
                       applicationId={import.meta.env.VITE_SQUARE_APPLICATION_ID}
                       locationId={import.meta.env.VITE_SQUARE_LOCATION_ID || ''}
                       cardTokenizeResponseReceived={handleSquareTokenization}
+                      createPaymentRequest={() => ({
+                        countryCode: 'US',
+                        currencyCode: 'USD',
+                        total: {
+                          amount: (total || 10).toFixed(2),
+                          label: 'Total',
+                        },
+                      })}
                     >
                       <CreditCard
                         buttonProps={{
@@ -506,13 +514,24 @@ export function Checkout() {
                             letterSpacing: '0.12em',
                             border: 'none',
                             cursor: isAddressComplete ? 'pointer' : 'not-allowed',
-                            marginTop: '1.5rem',
                             transition: 'all 0.2s ease',
                           },
                         }}
                       >
                         {isProcessing ? 'PROCESSING…' : `PLACE ORDER — $${(total || 10).toFixed(2)}`}
                       </CreditCard>
+
+                      <div className="relative flex items-center py-4 mt-6 mb-2">
+                        <div className="flex-grow border-t border-gray-200"></div>
+                        <span className="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-black uppercase tracking-widest">or express checkout</span>
+                        <div className="flex-grow border-t border-gray-200"></div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 w-full [&>div]:w-full [&>div]:h-[48px] [&>div>div]:w-full [&>div>div]:h-full [&_iframe]:!w-full [&_iframe]:!h-[48px] [&_iframe]:!min-w-full [&_iframe]:!min-h-[48px] [&_iframe]:rounded-md overflow-hidden">
+                        <GooglePay buttonColor="black" buttonType="long" />
+                        <CashAppPay redirectURL={window.location.origin + '/checkout'} shape="semiround" width="full" />
+                        <Afterpay />
+                      </div>
                     </PaymentForm>
                     </div>
                   ) : (
