@@ -157,6 +157,8 @@ export function ProductDetail() {
     if (id) {
       const loadContent = async () => {
         try {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const { db } = await import("../lib/firebase");
           const docRef = doc(db, 'product_content', id);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
