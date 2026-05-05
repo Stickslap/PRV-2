@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "isolatedModules": false,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "outDir": "./dist-server"
+  },
+  "include": ["server.ts", "api/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src"]
+}

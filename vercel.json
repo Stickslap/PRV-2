@@ -9,6 +9,7 @@
       "source": "/api/(.*)",
       "destination": "/api/index.ts"
     }
-  ]
+  ],
+  "buildCommand": "vite build"
 }
 
