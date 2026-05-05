@@ -5,7 +5,12 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { SquareClient, SquareEnvironment } from "square";
 
-dotenv.config();
+// Safely load .env - in Vercel production, env vars are injected by the platform
+try {
+  dotenv.config();
+} catch (e) {
+  console.log('dotenv: no .env file found, using platform environment variables');
+}
 
 // Initialize Square Client
 let squareClient: typeof SquareClient.prototype | null = null;
