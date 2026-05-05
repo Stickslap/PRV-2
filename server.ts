@@ -107,7 +107,8 @@ const getBCClient = () => {
     headers: {
       "X-Auth-Token": accessToken,
       "Accept": "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Accept-Encoding": "gzip, deflate"
     }
   });
 };
@@ -198,10 +199,13 @@ app.get("/api/products", async (req, res) => {
 });
 
 app.get("/api/products/:id", async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   if (!id || id === 'undefined' || id === 'null') {
     return res.status(400).json({ error: "Invalid product ID" });
   }
+  
+  // Sanitize trailing slashes which Vercel rewrites sometimes append
+  id = id.replace(/\/$/, '');
 
   const cacheKey = `product_${id}`;
   const cachedProduct = getFromCache(cacheKey, CACHE_TTL.product);
