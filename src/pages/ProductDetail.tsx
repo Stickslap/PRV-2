@@ -8,8 +8,6 @@ import { ProductFeaturesBar } from "../components/ProductFeaturesBar";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, ArrowLeft, Shield, Truck, RotateCcw, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { db } from "../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
 
 export function ProductDetail() {
   const { id } = useParams();

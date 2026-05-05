@@ -107,8 +107,7 @@ const getBCClient = () => {
     headers: {
       "X-Auth-Token": accessToken,
       "Accept": "application/json",
-      "Content-Type": "application/json",
-      "Accept-Encoding": "gzip, deflate"
+      "Content-Type": "application/json"
     }
   });
 };
@@ -157,7 +156,15 @@ app.get("/api/products", async (req, res) => {
     
     while (hasMore && page <= 10) { 
       console.log(`Fetching page ${page}...`);
-      const response = await bc.get(`/catalog/products?include=images,variants,primary_image,options,modifiers,custom_fields&limit=250&page=${page}&sort=id&direction=desc`);
+      const response = await bc.get(`/catalog/products`, {
+        params: {
+          include: 'images,variants,primary_image,options,modifiers,custom_fields',
+          limit: 250,
+          page: page,
+          sort: 'id',
+          direction: 'desc'
+        }
+      });
       const data = response.data.data || [];
       allProducts = [...allProducts, ...data];
       
@@ -241,7 +248,11 @@ app.get("/api/products/:id", async (req, res) => {
     return res.status(404).json({ error: "Product not found." });
   }
   try {
-    const response = await bc.get(`/catalog/products/${id}?include=images,variants,primary_image,options,modifiers,custom_fields`);
+    const response = await bc.get(`/catalog/products/${id}`, {
+      params: {
+        include: 'images,variants,primary_image,options,modifiers,custom_fields'
+      }
+    });
     setToCache(cacheKey, response.data);
     res.json(response.data);
   } catch (error: any) {
