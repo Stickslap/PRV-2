@@ -8,6 +8,8 @@ import { ProductFeaturesBar } from "../components/ProductFeaturesBar";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, ArrowLeft, Shield, Truck, RotateCcw, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { db } from "../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export function ProductDetail() {
   const { id } = useParams();
@@ -140,25 +142,20 @@ export function ProductDetail() {
   const [deliveryTimeframe, setDeliveryTimeframe] = useState<string>("3-5 Business Days");
 
   useEffect(() => {
-    // Fetch global settings for delivery timeframe
-    import("firebase/firestore").then(({ doc, getDoc }) => {
-      import("../lib/firebase").then(({ db }) => {
-        getDoc(doc(db, "settings", "global")).then((snap) => {
-          if (snap.exists() && snap.data().content) {
-            const data = JSON.parse(snap.data().content);
-            if (data.shipping?.timeframe) {
-              setDeliveryTimeframe(data.shipping.timeframe);
-            }
-          }
-        });
-      });
+    // Fetch global settings for delivery timeframe (using statically imported firebase)
+    getDoc(doc(db, "settings", "global")).then((snap) => {
+      if (snap.exists() && snap.data().content) {
+        const data = JSON.parse(snap.data().content);
+        if (data.shipping?.timeframe) {
+          setDeliveryTimeframe(data.shipping.timeframe);
+        }
+      }
     });
 
     if (id) {
       const loadContent = async () => {
         try {
-          const { doc, getDoc } = await import("firebase/firestore");
-          const { db } = await import("../lib/firebase");
+          // Use statically imported firebase bindings
           const docRef = doc(db, 'product_content', id);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
